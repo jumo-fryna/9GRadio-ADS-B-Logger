@@ -16,6 +16,7 @@ Added or modified:
 - `app/src/main/java/com/radiosport/ninegradio/RtlSdrApplication.kt`
 - `app/src/main/java/com/radiosport/ninegradio/adsblog/AdsbLogger.kt`
 - `app/src/main/java/com/radiosport/ninegradio/adsblog/LogEntities.kt`
+- `app/src/main/java/com/radiosport/ninegradio/adsblog/ReceptionReportLoader.kt`
 - `app/src/main/java/com/radiosport/ninegradio/data/AppDatabase.kt`
 - `app/src/main/java/com/radiosport/ninegradio/dsp/DspEngine.kt`
 - `app/src/main/java/com/radiosport/ninegradio/dsp/ProtocolDecoders.kt`

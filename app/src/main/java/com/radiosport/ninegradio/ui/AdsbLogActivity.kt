@@ -159,7 +159,7 @@ class AdsbLogActivity : AppCompatActivity() {
                 } }
                 launch { filter.flatMapLatest { dao.filtered(it) }.collect { cards ->
                     rows.clear(); rows.addAll(cards); adapter.notifyDataSetChanged()
-                    caption.text = "${cards.size} reception(s) • same selection for screen / exports • UTC"
+                    caption.text = "${if(mobile&&displayedFilter==filter.value)displayedReport?.cards?.size?:cards.size else cards.size} reception(s) • snapshot for screen / exports • UTC"
                     if(!mobile || displayedReport==null || displayedFilter!=filter.value) refreshDashboard()
 
                 } }
@@ -207,7 +207,7 @@ class AdsbLogActivity : AppCompatActivity() {
     }
     private fun export(format: ExportFormat) {
         if (exportBusy) { message("Export already in progress"); return }
-        if (rows.isEmpty()) { message("No matching receptions to export"); return }
+        if (rows.isEmpty() && mobileBody==null) { message("No matching receptions to export"); return }
         val visible=if(mobileBody!=null&&displayedFilter==filter.value)displayedReport else null
         exportBusy = true
         lifecycleScope.launch {
@@ -243,10 +243,7 @@ class AdsbLogActivity : AppCompatActivity() {
         }
     }
     private suspend fun prepareReport(selected: LogFilter): ReceptionReport = withContext(Dispatchers.IO) {
-        app.database.withTransaction {
-            val cards=dao.filteredOnce(selected);val ids=cards.map{it.reception.sessionId}.toSet()
-            ReceptionReport(System.currentTimeMillis(),dao.allSessions().filter{it.id in ids},cards,cards.associate{it.reception.id to dao.points(it.reception.id)})
-        }
+        ReceptionReportLoader.load(app.database,selected)
     }
     private fun shareReport() {
         if(exportBusy)return

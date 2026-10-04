@@ -15,12 +15,21 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 class SkyLogTest {
-    @Test fun independentPackageAndDatabase() {
+    @Test fun independentPackageAndDatabase() = kotlinx.coroutines.runBlocking {
         val c=ApplicationProvider.getApplicationContext<Context>()
         assertEquals("com.radiosport.skylog1090",c.packageName)
         assertTrue(c.getDatabasePath("skylog1090.db").absolutePath.contains("/com.radiosport.skylog1090/"))
         assertFalse(c.getDatabasePath("skylog1090.db").absolutePath.contains("/com.radiosport.ninegradio/"))
         assertEquals(2_000_000,SkyLogService.RATE)
+        val db=androidx.room.Room.inMemoryDatabaseBuilder(c,com.radiosport.ninegradio.data.AppDatabase::class.java).build()
+        try {
+            db.adsbLogDao().saveSessions(listOf(ReceptionSession("empty",1000,5000,endedAt=5000)))
+            val whole=ReceptionReportLoader.load(db,LogFilter(sessionId="empty"))
+            assertEquals(0,whole.stats.aircraft);assertEquals(0L,whole.stats.frames);assertEquals(4000L,whole.stats.listeningMs)
+            val day=ReceptionReportLoader.load(db,LogFilter(from=2000,until=3000,sessionId="empty"))
+            assertEquals(1000L,day.stats.listeningMs)
+        }finally{db.close()}
+
     }
     @Test fun nativeMagnitudePipelineMatchesUpstreamNormalization() = kotlinx.coroutines.runBlocking {
         val result=SkyLogIq().magnitude(byteArrayOf(0,0,(-1).toByte(),(-1).toByte(),128.toByte(),128.toByte()))
