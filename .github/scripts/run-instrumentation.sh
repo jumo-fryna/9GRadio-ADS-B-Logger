@@ -12,3 +12,5 @@ if ! grep -Eq '^OK \(7 tests\)' instrumentation.txt; then
   echo 'Android instrumentation tests failed or did not complete.' >&2
   exit 1
 fi
+
+adb pull /sdcard/Android/data/com.radiosport.skylog1090/files/phone-report-preview.png artifacts/phone-report-preview.png

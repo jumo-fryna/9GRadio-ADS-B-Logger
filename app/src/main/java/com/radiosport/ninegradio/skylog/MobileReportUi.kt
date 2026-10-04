@@ -73,17 +73,18 @@ class OperatorBadge(ctx:android.content.Context):LinearLayout(ctx) {
 /** Responsive Canvas chart, numeric data in local memory. */
 class ReportChart(ctx:android.content.Context,private val values:List<Pair<Double,Double>>,private val xLabel:String,private val yLabel:String):View(ctx) {
     override fun onDraw(c:Canvas) {
-        c.drawColor(Color.rgb(8,28,40));val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.rgb(150,202,214);textSize=24f}
-        c.drawText("$yLabel / $xLabel",14f,30f,p)
-        if(values.isEmpty()){c.drawText("No recorded data",14f,65f,p);return}
+        val d=resources.displayMetrics.density;val sp=resources.displayMetrics.scaledDensity
+        c.drawColor(Color.rgb(8,28,40));val p=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.rgb(150,202,214);textSize=12f*sp}
+        c.drawText("$yLabel / $xLabel",14f*d,30f*d,p)
+        if(values.isEmpty()){c.drawText("No recorded data",14f*d,65f*d,p);return}
         val sorted=values.sortedBy{it.first};val minX=sorted.first().first;val spanX=(sorted.last().first-minX).coerceAtLeast(1.0)
         val minY=minOf(0.0,sorted.minOf{it.second});val maxY=sorted.maxOf{it.second}.coerceAtLeast(minY+1)
-        val left=62f;val top=50f;val bottom=height-45f;val right=width-16f
+        val left=62f*d;val top=50f*d;val bottom=height-45f*d;val right=width-16f*d
         p.color=Color.rgb(32,81,95);p.strokeWidth=1f;(0..4).forEach{i->val y=top+(bottom-top)*i/4;c.drawLine(left,y,right,y,p)}
         val path=Path();sorted.forEachIndexed {i,v->val x=(left+(v.first-minX)/spanX*(right-left)).toFloat();val y=(bottom-(v.second-minY)/(maxY-minY)*(bottom-top)).toFloat();if(i==0)path.moveTo(x,y)else path.lineTo(x,y)}
-        p.color=Color.rgb(58,231,181);p.style=Paint.Style.STROKE;p.strokeWidth=3f;c.drawPath(path,p);p.style=Paint.Style.FILL
-        sorted.forEach{v->val x=(left+(v.first-minX)/spanX*(right-left)).toFloat();val y=(bottom-(v.second-minY)/(maxY-minY)*(bottom-top)).toFloat();c.drawCircle(x,y,3f,p)}
-        p.textSize=20f;c.drawText("%.0f".format(java.util.Locale.ROOT,maxY),4f,top+12,p);c.drawText("%.0f".format(java.util.Locale.ROOT,minY),4f,bottom,p)
-        if(sorted.first().first>1e11){c.drawText(java.time.Instant.ofEpochMilli(minX.toLong()).atOffset(java.time.ZoneOffset.UTC).toLocalTime().toString(),left,height-12f,p)}
+        p.color=Color.rgb(58,231,181);p.style=Paint.Style.STROKE;p.strokeWidth=2f*d;c.drawPath(path,p);p.style=Paint.Style.FILL
+        sorted.forEach{v->val x=(left+(v.first-minX)/spanX*(right-left)).toFloat();val y=(bottom-(v.second-minY)/(maxY-minY)*(bottom-top)).toFloat();c.drawCircle(x,y,2f*d,p)}
+        p.textSize=10f*sp;c.drawText("%.0f".format(java.util.Locale.ROOT,maxY),4f*d,top+12*d,p);c.drawText("%.0f".format(java.util.Locale.ROOT,minY),4f*d,bottom,p)
+        if(sorted.first().first>1e11){c.drawText(java.time.Instant.ofEpochMilli(minX.toLong()).atOffset(java.time.ZoneOffset.UTC).toLocalTime().toString(),left,height-12f*d,p)}
     }
 }

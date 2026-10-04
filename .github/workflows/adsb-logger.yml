@@ -126,5 +126,7 @@ jobs:
         if: always()
         with:
           name: android-instrumentation-results
-          path: instrumentation.txt
+          path: |
+            instrumentation.txt
+            artifacts/phone-report-preview.png
           if-no-files-found: warn

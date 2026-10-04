@@ -63,16 +63,24 @@ class SkyLogTest {
         val c=ApplicationProvider.getApplicationContext<Context>()
         ActivityScenario.launch<AdsbLogActivity>(Intent(c,AdsbLogActivity::class.java).putExtra("mobileReport",true)).use { scenario->scenario.onActivity{a->
             assertNotNull(a.window.decorView)
-            val r=AircraftReception("r","s","ABC123",firstSeen=1000,lastSeen=2000,frameCount=40)
+            val now=System.currentTimeMillis()
+            val r=AircraftReception("r","s","ABC123",firstSeen=now-3_600_000,lastSeen=now,frameCount=40,minAltitude=14000,maxAltitude=34000,maxSpeed=420,heading=132.0,verticalRate=-800,maxDistanceNm=210.0)
             val card=ReceptionCard(r,"SP-TEST",null,"Test model","Local operator","A320",null)
-            val report=ReceptionReport(2000,listOf(ReceptionSession("s",1000,2000)),listOf(card),emptyMap())
-            val root=android.widget.LinearLayout(a)
+            val report=ReceptionReport(now,listOf(ReceptionSession("s",now-3_600_000,now,receiverLat=51.0,receiverLon=19.0)),listOf(card),mapOf("r" to listOf(TrackPoint("r",0,now-3_600_000,52.0,20.0,14000),TrackPoint("r",1,now,53.0,21.0,34000))))
+            val root=android.widget.LinearLayout(a).apply{orientation=android.widget.LinearLayout.VERTICAL}
             MobileReportUi.render(root,report,"Offline test"){}
             fun texts(v:android.view.View):List<String> = if(v is android.widget.TextView)listOf(v.text.toString()) else if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{texts(v.getChildAt(it))}else emptyList()
             val labels=texts(root)
             assertTrue(labels.contains("AIRCRAFT\n${report.stats.aircraft}"))
             assertTrue(labels.contains("FRAMES\n${report.stats.frames}"))
             assertTrue(labels.any{it.contains("SP-TEST")})
+            root.measure(android.view.View.MeasureSpec.makeMeasureSpec(1080,android.view.View.MeasureSpec.EXACTLY),android.view.View.MeasureSpec.makeMeasureSpec(0,android.view.View.MeasureSpec.UNSPECIFIED))
+            root.layout(0,0,1080,root.measuredHeight)
+            val bitmap=android.graphics.Bitmap.createBitmap(1080,root.measuredHeight.coerceAtMost(16000),android.graphics.Bitmap.Config.ARGB_8888)
+            root.draw(android.graphics.Canvas(bitmap))
+            java.io.File(a.getExternalFilesDir(null),"phone-report-preview.png").outputStream().use{bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG,100,it)}
+            bitmap.recycle()
+
         } }
         c.stopService(Intent(c,SkyLogService::class.java))
     }

@@ -96,10 +96,10 @@ class SkyRadar(context:android.content.Context):View(context) {
         c.drawColor(Color.rgb(5,18,28));val cx=width/2f;val cy=height/2f;val radius=minOf(cx,cy)*0.85f
         val pen=Paint(Paint.ANTI_ALIAS_FLAG).apply{color=Color.rgb(30,89,102);style=Paint.Style.STROKE;strokeWidth=1f}
         (1..4).forEach{c.drawCircle(cx,cy,radius*it/4,pen)};c.drawLine(cx-radius,cy,cx+radius,cy,pen);c.drawLine(cx,cy-radius,cx,cy+radius,pen)
-        pen.style=Paint.Style.FILL;pen.textSize=24f;pen.color=Color.CYAN;c.drawText("N • 250 NM",cx-70,cy-radius-10,pen)
+        pen.style=Paint.Style.FILL;pen.textSize=14f*resources.displayMetrics.scaledDensity;pen.color=Color.CYAN;c.drawText("N • 250 NM",cx-70,cy-radius-10,pen)
         val p=origin?:return
         fun xy(a:Double,b:Double):Pair<Float,Float> {val x=((b-p.second)*kotlin.math.cos(Math.toRadians(p.first))*60/250*radius).toFloat();val y=((a-p.first)*60/250*radius).toFloat();return Pair(cx+x,cy-y)}
         paths.values.forEach { points ->pen.color=Color.rgb(20,100,100);pen.style=Paint.Style.STROKE;val path=Path();points.forEachIndexed {i,v->val (x,y)=xy(v.latitude,v.longitude);if(i==0)path.moveTo(x,y)else path.lineTo(x,y)};c.drawPath(path,pen)}
-        frames.forEach{f->if(f.latitude!=null&&f.longitude!=null){val(x,y)=xy(f.latitude,f.longitude);pen.style=Paint.Style.FILL;pen.color=Color.rgb(56,237,176);c.drawCircle(x,y,5f,pen);pen.textSize=22f;c.drawText(f.callsign?:f.icao24,x+8,y-6,pen)}}
+        frames.forEach{f->if(f.latitude!=null&&f.longitude!=null){val(x,y)=xy(f.latitude,f.longitude);pen.style=Paint.Style.FILL;pen.color=Color.rgb(56,237,176);c.drawCircle(x,y,5f,pen);pen.textSize=12f*resources.displayMetrics.scaledDensity;c.drawText(f.callsign?:f.icao24,x+8,y-6,pen)}}
     }
 }
