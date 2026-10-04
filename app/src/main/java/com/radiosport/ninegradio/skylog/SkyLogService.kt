@@ -29,6 +29,7 @@ class SkyLogService : Service() {
     private var source: RtlSdrDeviceSource? = null
     private var reader: Job? = null
     private var health: Job? = null
+    private val wake by lazy { (getSystemService(POWER_SERVICE) as PowerManager).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"SkyLog1090:USB").apply{setReferenceCounted(false)} }
     private val logger get() = (application as RtlSdrApplication).adsbLogger
     val state = MutableStateFlow("NO RTL-SDR • waiting for USB")
     val live = MutableStateFlow<List<AdsbDecoder.AdsbFrame>>(emptyList())
@@ -114,6 +115,7 @@ class SkyLogService : Service() {
                 }
             }
             withContext(Dispatchers.IO) { s.startStreaming() }
+            wake.acquire()
             state.value = "${if(s.device.isV4) "V4L" else "RTL-SDR"} CONNECTED • 1090.000 MHz • ADS-B • LOGGING"
             health = scope.launch {
                 var restarts = 0; var lastFailure = 0L
@@ -121,20 +123,21 @@ class SkyLogService : Service() {
                     val now = System.currentTimeMillis(); if (now-lastFailure > 10_000) restarts=0
                     lastFailure=now; restarts++
                     if (restarts <= 5 && s.device.restartStreaming()) state.value = "RTL-SDR CONNECTED • 1090.000 MHz • ADS-B • LOGGING"
-                    else { state.value = "IQ stream failed • reconnect receiver"; logger.stop(); reader?.cancel() }
+                    else { state.value = "IQ stream failed • reconnect receiver"; logger.stop();reader?.cancel();if(wake.isHeld)wake.release() }
                 } }
             }
         } catch (e: CancellationException) { s.close(); throw e
         } catch (e: Exception) { s.close(); source=null; logger.stop(); state.value="Receiver error: ${e.message}" }
     }
     private suspend fun disconnect() {
+        if(wake.isHeld)wake.release()
         reader?.cancelAndJoin(); reader=null; health?.cancel(); health=null
         withContext(Dispatchers.IO) { source?.close(); source=null }
         logger.stop()
         synchronized(aircraft) { aircraft.clear(); trails.clear();routes.value=emptyMap();live.value=emptyList() }
     }
     override fun onDestroy() {
-        usb.stopListening(); reader?.cancel();health?.cancel();val closing=source;source=null;logger.stop();scope.cancel();(application as RtlSdrApplication).cleanupScope.launch{closing?.close()};super.onDestroy()
+        usb.stopListening();if(wake.isHeld)wake.release();reader?.cancel();health?.cancel();val closing=source;source=null;logger.stop();scope.cancel();(application as RtlSdrApplication).cleanupScope.launch{closing?.close()};super.onDestroy()
     }
 }
 
@@ -143,12 +146,21 @@ internal class SkyLogIq {
     private var floats = FloatArray(0)
     private var mag = FloatArray(0)
     private val dc = FloatArray(4)
+    private val tail=FloatArray(240)
+    private var tailSize=0
+    private var output=FloatArray(0)
     fun magnitude(bytes: ByteArray): FloatArray {
         if(floats.size!=bytes.size) floats=FloatArray(bytes.size)
         if(mag.size!=bytes.size/2) mag=FloatArray(bytes.size/2)
         NativeDsp.convertUint8ToFloatInto(bytes, floats, bytes.size)
         NativeDsp.removeDc(floats, dc, 0.9999f)
         for(i in mag.indices) { val a=floats[2*i]; val b=floats[2*i+1]; mag[i]=kotlin.math.sqrt(a*a+b*b) }
-        return mag // consumed synchronously by decoder, never queued or shared with UI
+        // Decoder deliberately skips starts in the last 240 samples. Carry them forward
+        // to decode USB-boundary frames without changing decoder logic or double counting.
+        val length=tailSize+mag.size
+        if(output.size!=length)output=FloatArray(length)
+        tail.copyInto(output,0,0,tailSize);mag.copyInto(output,tailSize)
+        tailSize=minOf(240,length);output.copyInto(tail,0,length-tailSize,length)
+        return output // synchronously consumed, never queued or shared with UI
     }
 }
