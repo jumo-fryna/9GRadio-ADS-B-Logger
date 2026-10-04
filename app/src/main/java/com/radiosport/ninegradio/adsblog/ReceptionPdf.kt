@@ -9,7 +9,8 @@ object ReceptionPdf {
     private val navy = Color.rgb(13, 35, 51)
     private val teal = Color.rgb(0, 112, 116)
     fun write(report: ReceptionReport, output: OutputStream) {
-        PdfDocument().use { document ->
+        val document = PdfDocument()
+        try {
             var pageNumber = 0
             fun page(block: (Canvas) -> Unit) {
                 val page = document.startPage(PdfDocument.PageInfo.Builder(595, 842, ++pageNumber).create())
@@ -73,6 +74,8 @@ object ReceptionPdf {
                 text(c, "IDENTITY SOURCE: ${card.identitySource ?: "No local identification"}", 36f, 767f, 8f, Color.DKGRAY)
             } }
             document.writeTo(output)
+        } finally {
+            document.close()
         }
     }
     private fun field(c: Canvas, label: String, value: String, x: Float, y: Float) {
