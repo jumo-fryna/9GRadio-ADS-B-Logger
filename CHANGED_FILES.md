@@ -18,6 +18,7 @@ Added or modified:
 - `app/src/main/java/com/radiosport/ninegradio/adsblog/LogEntities.kt`
 - `app/src/main/java/com/radiosport/ninegradio/data/AppDatabase.kt`
 - `app/src/main/java/com/radiosport/ninegradio/dsp/DspEngine.kt`
+- `app/src/main/java/com/radiosport/ninegradio/dsp/ProtocolDecoders.kt`
 - `app/src/main/java/com/radiosport/ninegradio/skylog/MobileReportUi.kt`
 - `app/src/main/java/com/radiosport/ninegradio/skylog/SkyLogActivity.kt`
 - `app/src/main/java/com/radiosport/ninegradio/skylog/SkyLogService.kt`
@@ -262,4 +263,4 @@ Deleted after stage-1 GREEN (228 files):
 - `app/src/main/res/values/arrays.xml`
 - `app/src/main/res/xml/preferences.xml`
 
-Retained without changes: RTL USB driver/helper, UsbDeviceManager, RtlSdrDeviceSource, NativeDsp, native USB/DSP JNI and complete ProtocolDecoders.kt. Legacy Room entities/migrations remain for safe schema compatibility; unrelated UI is removed.
+Retained without changes: RTL USB driver/helper, UsbDeviceManager, RtlSdrDeviceSource, NativeDsp, and native USB/DSP JNI. ProtocolDecoders.kt has one necessary ADS-B preamble-index correction; CRC and aircraft decoding remain unchanged. Legacy Room entities/migrations remain for safe schema compatibility; unrelated UI is removed.

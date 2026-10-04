@@ -32,7 +32,7 @@ class SkyLogTest {
         val bytes=ByteArray(32_768){128.toByte()}
         val offset=8000
         fun pulse(sample:Int){bytes[sample*2]=255.toByte()}
-        listOf(0,1,7,8).forEach{pulse(offset+it)}
+        listOf(0,2,7,9).forEach{pulse(offset+it)}
         val hex="8D40621D58C382D690C8AC2863A7"
         hex.chunked(2).map{it.toInt(16)}.forEachIndexed{n,b->(0..7).forEach{bit->pulse(offset+16+(n*8+bit)*2+if((b and (128 shr bit))!=0)0 else 1)}}
         val decoder=com.radiosport.ninegradio.dsp.AdsbDecoder()

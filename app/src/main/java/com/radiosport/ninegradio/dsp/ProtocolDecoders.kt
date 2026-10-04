@@ -1042,14 +1042,14 @@ class AdsbDecoder {
 
     private fun detectPreamble(mag: FloatArray, pos: Int): Boolean {
         if (pos + 16 >= mag.size) return false
-        // Mode S preamble pattern: pulses at 0,1 µs and 3.5,4.5 µs (×2 samples/µs)
+        // Mode S has 0.5-us pulses at 0, 1, 3.5 and 4.5 us:
+        // at exactly 2 MS/s these are sample indices 0, 2, 7 and 9.
         val p0 = mag[pos];     val p1 = mag[pos + 1]
         val p2 = mag[pos + 2]; val p3 = mag[pos + 3]
-        val p7 = mag[pos + 7]; val p8 = mag[pos + 8]
+        val p7 = mag[pos + 7]; val p8 = mag[pos + 8]; val p9 = mag[pos + 9]
         val threshold = 0.2f
-        return p0 > threshold && p1 > threshold &&
-                p2 < threshold && p3 < threshold &&
-                p7 > threshold && p8 > threshold
+        return p0 > threshold && p2 > threshold && p7 > threshold && p9 > threshold &&
+                p1 < threshold && p3 < threshold && p8 < threshold
     }
 
     private fun demodulate(mag: FloatArray, start: Int, bits: Int): BooleanArray {

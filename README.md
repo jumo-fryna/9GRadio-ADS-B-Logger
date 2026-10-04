@@ -11,4 +11,4 @@ Starts directly in LIVE, detects USB and automatically tunes to 1090 MHz / 2 MS/
 
 [Reception, reporting, test coverage and limitations](docs/SKYLOG_1090.md) · [Changelog](CHANGELOG_ADSB_LOGGER.md)
 
-The RTL driver, native USB bridge and ADS-B decoder remain upstream code. Source namespace is preserved for JNI compatibility. No online API is required for logging. A local licensed identity dataset can be imported; unknown aircraft metadata remains unknown. Physical hardware reception and desktop Excel must be verified on those devices.
+The RTL driver and native USB bridge remain unchanged upstream code. The ADS-B decoder preserves CRC/field decoding and corrects the inherited Mode-S preamble sample indices for 2 MS/s. Source namespace is preserved for JNI compatibility. No online API is required for logging. A local licensed identity dataset can be imported; unknown aircraft metadata remains unknown. Physical hardware reception and desktop Excel must be verified on those devices.
