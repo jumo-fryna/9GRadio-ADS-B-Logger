@@ -52,19 +52,33 @@ jobs:
           python3 scripts/check_static.py
           python3 scripts/check_sql.py
       - name: Unit tests and debug APKs for every existing ABI
-        run: ./gradlew --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest
+        run: ./gradlew --no-daemon --stacktrace :app:testLoggerTestUnitTest :app:assembleDebug :app:assembleLoggerTest :app:assembleLoggerTestAndroidTest
       - name: Prepare artifacts
         run: |
           mkdir -p artifacts
           cp app/build/outputs/apk/debug/*.apk artifacts/9GRadio-ADS-B-Logger-debug.apk
-          cp app/build/outputs/apk/androidTest/debug/*.apk artifacts/9GRadio-ADS-B-Logger-tests.apk
+          cp app/build/outputs/apk/loggerTest/*.apk artifacts/9GRadio-ADS-B-Logger-parallel-test.apk
+          cp app/build/outputs/apk/androidTest/loggerTest/*.apk artifacts/9GRadio-ADS-B-Logger-tests.apk
           sha256sum artifacts/9GRadio-ADS-B-Logger-debug.apk | tee artifacts/9GRadio-ADS-B-Logger-debug.apk.sha256
+          sha256sum artifacts/9GRadio-ADS-B-Logger-parallel-test.apk | tee artifacts/9GRadio-ADS-B-Logger-parallel-test.apk.sha256
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging artifacts/9GRadio-ADS-B-Logger-parallel-test.apk > artifacts/parallel-manifest.txt
+          grep -F "package: name='com.radiosport.ninegradio.adsblogger'" artifacts/parallel-manifest.txt
+          grep -F "application-label:'9GRadio ADS-B Logger'" artifacts/parallel-manifest.txt
       - uses: actions/upload-artifact@v4
         with:
           name: 9GRadio-ADS-B-Logger-debug
           path: |
             artifacts/9GRadio-ADS-B-Logger-debug.apk
             artifacts/9GRadio-ADS-B-Logger-debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 9GRadio-ADS-B-Logger-parallel-test
+          path: |
+            artifacts/9GRadio-ADS-B-Logger-parallel-test.apk
+            artifacts/9GRadio-ADS-B-Logger-parallel-test.apk.sha256
+            artifacts/parallel-manifest.txt
           if-no-files-found: error
           retention-days: 30
       - uses: actions/upload-artifact@v4
@@ -77,8 +91,8 @@ jobs:
         with:
           name: unit-tests-and-room-schema
           path: |
-            app/build/test-results/testDebugUnitTest/
-            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testLoggerTestUnitTest/
+            app/build/reports/tests/testLoggerTestUnitTest/
             app/schemas/
           if-no-files-found: warn
 
@@ -99,6 +113,10 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: 9GRadio-ADS-B-Logger-debug
+          path: artifacts
+      - uses: actions/download-artifact@v4
+        with:
+          name: 9GRadio-ADS-B-Logger-parallel-test
           path: artifacts
       - uses: actions/download-artifact@v4
         with:

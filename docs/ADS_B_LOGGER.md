@@ -48,3 +48,11 @@ Opcjonalne **Refresh HTTPS** używa podanego adresu datasetu, z limitami czasu i
 ## Weryfikacja
 
 Lokalnie wykonano 8 testów SQL SQLite pobranego z kodu migracji i filtrów, sprawdzono leksykę/delimitery 21 plików Kotlin, 70 XML, identyfikatory zasobów, manifest, style XLSX oraz składnię YAML/shell CI. Nie są to kompilator Kotlin ani walidacja Room. W GitHub Actions potwierdzono budowę debug APK, 17/17 testów JVM oraz 4/4 testy instrumentacyjne na Android 35 x86_64. Odbiór i wydajność na fizycznym RTL-SDR Blog V4L wymagają sprawdzenia na urządzeniu; kod sterownika i dekodera nie został zmieniony.
+
+## Wariant do instalacji równoległej
+
+Build type `loggerTest` dziedziczy ustawienia debug i dodaje suffix `.adsblogger`. Pełny applicationId: `com.radiosport.ninegradio.adsblogger`; nazwa: **9GRadio ADS-B Logger**. Kod, dekoder, logger i schemat Room są takie same. Android przydziela oddzielny UID i prywatny katalog danych; `ninegradio.db` jest tworzona w katalogu nowego pakietu i nie jest bazą oryginalnej aplikacji. FileProvider używa `${applicationId}.fileprovider`, więc nie koliduje z oryginałem. Wariant nie importuje ani nie migruje danych z oryginalnego pakietu.
+
+W Actions pobierz artefakt **9GRadio-ADS-B-Logger-parallel-test**, rozpakuj ZIP i zainstaluj **9GRadio-ADS-B-Logger-parallel-test.apk**. Oryginał może pozostać zainstalowany. Artefakt zawiera też SHA-256 oraz wynik sprawdzenia nazwy i identyfikatora pakietu w gotowym APK. Dotychczasowy debug APK pozostaje dodatkowym artefaktem; nie jest przeznaczony do instalacji obok oryginału.
+
+Workflow wykonuje 17 testów JVM oraz 4 testy Android dla wariantu `loggerTest`. Emulator instaluje oba identyfikatory pakietu i sprawdza oddzielne katalogi prywatnych danych/baz przed testami. Schematy i raporty JVM pochodzą z `testLoggerTestUnitTest`. Konfiguracja testów instrumentacyjnych używa `testBuildType "loggerTest"`.
