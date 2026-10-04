@@ -10,4 +10,4 @@
 
 Podstawa: rkarikari/9GRadio, commit `6ddd1df798f39640ee87f16b4abc1074c962dcfb`.
 Sterownik RTL-SDR, DSP, dekoder ADS-B, RtlSdrService i MainViewModel pozostają zgodne bajtowo z tym commitem.
-Weryfikacja lokalna: 8 testów rzeczywistego SQL zakończonych powodzeniem oraz kontrole statyczne. Kompilacja Kotlin, walidacja Room i testy eksportów wymagają uruchomienia przygotowanego CI; nie potwierdzono jeszcze wyników tych testów ani działania na fizycznym V4L.
+Weryfikacja lokalna: 8 testów rzeczywistego SQL zakończonych powodzeniem oraz kontrole statyczne. GitHub Actions zbudował debug APK; potwierdzono 17/17 testów JVM oraz 4/4 testy Android (migracje Room, PDF, cache offline). Poprawiono konfigurację instalacji SDK, zamykanie PdfDocument oraz skrypt sprawdzania wyniku emulatora. Działanie i wydajność na fizycznym V4L pozostają do sprawdzenia.

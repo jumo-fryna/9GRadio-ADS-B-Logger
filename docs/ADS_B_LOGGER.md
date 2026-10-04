@@ -9,9 +9,9 @@ Pełna lista zmian znajduje się w `CHANGED_FILES.md`.
 2. Zapisz i wypchnij zmiany do GitHub. Workflow **ADS-B Logger APK and tests** uruchamia się po pushu/PR; można go również uruchomić przez **Actions → Run workflow**.
 3. Job `build` instaluje SDK 35, NDK 27.0.12077973, CMake 3.22.1, JDK 21 oraz Gradle 8.13. Generuje kompletny Gradle Wrapper. Tylko w checkout CI odkłada upstreamową konfigurację daemon JVM JetBrains i używa skonfigurowanego Temurin 21.
 4. Job `build` wykonuje kontrole statyczne, testy SQL i 17 testów JVM oraz buduje aplikację i APK testowy. Job `android-tests` uruchamia 4 testy instrumentacyjne na emulatorze Android 35 x86_64: migracje 1 → 3 / 2 → 3, PDF i lokalny cache.
-5. Pobierz artefakt **9GRadio-ADS-B-Logger-debug**. Po rozpakowaniu zawiera `9GRadio-ADS-B-Logger-debug.apk`. Raporty testów, wygenerowany schemat Room i wynik emulatora są osobnymi artefaktami.
+5. Pobierz artefakt **9GRadio-ADS-B-Logger-debug**. Po rozpakowaniu zawiera `9GRadio-ADS-B-Logger-debug.apk` oraz jego sumę SHA-256 w pliku `.apk.sha256`. Raporty testów, wygenerowany schemat Room i wynik emulatora są osobnymi artefaktami.
 
-Workflow jest przygotowany lokalnie; nie został opublikowany ani uruchomiony na koncie GitHub w tej sesji. Lokalne Android SDK/NDK oraz kompletny wrapper nie są potrzebne do uruchomienia tego workflow. Klucz debug jest cache'owany w obrębie repozytorium, aby kolejne buildy mogły aktualizować wcześniejszą instalację debug, gdy cache jest dostępny. Instalacja na istniejącym wydaniu upstream wymaga zgodnego klucza podpisu; debug APK nie zastępuje automatycznie aplikacji podpisanej innym kluczem.
+Projekt i workflow są opublikowane w https://github.com/jumo-fryna/9GRadio-ADS-B-Logger. GitHub Actions zbudował APK oraz uruchomił 17 testów JVM i 4 testy Android zakończone powodzeniem. Lokalne Android SDK/NDK oraz kompletny wrapper nie są potrzebne do uruchomienia tego workflow. Klucz debug jest cache'owany w obrębie repozytorium, aby kolejne buildy mogły aktualizować wcześniejszą instalację debug, gdy cache jest dostępny. Instalacja na istniejącym wydaniu upstream wymaga zgodnego klucza podpisu; debug APK nie zastępuje automatycznie aplikacji podpisanej innym kluczem.
 
 ## Odbiór i historia
 
@@ -35,7 +35,7 @@ Przycisk **XLSX** otwiera systemowy wybór miejsca zapisu. Raport wykorzystuje s
 - **SESJE**: identyfikatory, daty, czas nasłuchu, pozycja odbiornika, liczba wybranych maszyn i ramek oraz stan sesji.
 - **RAW DATA**: pełne zapisane agregaty poszczególnych wizyt i metadane identyfikacyjne. Nie zawiera surowych bajtów Mode S ani IQ. Powiązanie z TRASY wykorzystuje reception ID.
 
-Daty i liczby są typowanymi komórkami Excel; importowane teksty są komórkami tekstowymi, także gdy zaczynają się od `=`. Formuły podsumowania i wykresy można edytować w Microsoft Excel na Windows. Zgodność eksportu zostanie dodatkowo sprawdzona przez testy OOXML w CI; tego pliku nie otwierano jeszcze w desktopowym Excelu w tej sesji. Przy przekroczeniu limitu wierszy Excela eksport zgłasza błąd i wymaga zawężenia filtrów.
+Daty i liczby są typowanymi komórkami Excel; importowane teksty są komórkami tekstowymi, także gdy zaczynają się od `=`. Formuły podsumowania i wykresy można edytować w Microsoft Excel na Windows. Testy OOXML w CI przeszły; tego pliku nie otwierano jeszcze w desktopowym Excelu w tej sesji. Przy przekroczeniu limitu wierszy Excela eksport zgłasza błąd i wymaga zawężenia filtrów.
 
 Operatorzy mają tekstowe badge. Nie dołączono logo ani obrazów pobieranych z internetu. Dossier PDF pozostaje opcjonalne: okładka i osobna karta każdego odbioru, lokalny rysunek trasy, jednostki ft/kt/NM. CSV jest dodatkowym eksportem RFC 4180 z ochroną tekstów przed formułami arkusza.
 
@@ -47,4 +47,4 @@ Opcjonalne **Refresh HTTPS** używa podanego adresu datasetu, z limitami czasu i
 
 ## Weryfikacja
 
-Lokalnie wykonano 8 testów SQL SQLite pobranego z kodu migracji i filtrów, sprawdzono leksykę/delimitery 21 plików Kotlin, 70 XML, identyfikatory zasobów, manifest, style XLSX oraz składnię YAML/shell CI. Nie są to kompilator Kotlin ani walidacja Room. Testy JVM i instrumentacyjne oraz faktyczna budowa APK są przygotowane do uruchomienia w GitHub Actions. Odbiór i wydajność na fizycznym RTL-SDR Blog V4L wymagają sprawdzenia na urządzeniu; kod sterownika i dekodera nie został zmieniony.
+Lokalnie wykonano 8 testów SQL SQLite pobranego z kodu migracji i filtrów, sprawdzono leksykę/delimitery 21 plików Kotlin, 70 XML, identyfikatory zasobów, manifest, style XLSX oraz składnię YAML/shell CI. Nie są to kompilator Kotlin ani walidacja Room. W GitHub Actions potwierdzono budowę debug APK, 17/17 testów JVM oraz 4/4 testy instrumentacyjne na Android 35 x86_64. Odbiór i wydajność na fizycznym RTL-SDR Blog V4L wymagają sprawdzenia na urządzeniu; kod sterownika i dekodera nie został zmieniony.
