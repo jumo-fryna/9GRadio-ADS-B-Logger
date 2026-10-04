@@ -9,7 +9,7 @@ import com.radiosport.ninegradio.ui.logText
 /** Native offline dashboard, reading the very same immutable report used by Excel/PDF. */
 object MobileReportUi {
     fun render(root:LinearLayout,report:ReceptionReport,label:String,details:(ReceptionCard)->Unit) {
-        root.removeAllViews();val ctx=root.context
+        root.removeAllViews();root.setBackgroundColor(Color.rgb(5,18,28));val ctx=root.context
         fun text(value:String,size:Float=15f){root.addView(logText(ctx,value,size))}
         val s=report.stats
         text("✈ ADS-B RECEPTION REPORT",22f);text(label,18f)
@@ -43,6 +43,7 @@ object MobileReportUi {
                 charts.addView(object:View(ctx){override fun onDraw(c:Canvas){TrackRenderer.draw(c,RectF(12f,12f,width-12f,height-12f),points)}},LinearLayout.LayoutParams(-1,(220*ctx.resources.displayMetrics.density).toInt()))
             }
         }
+        if(keys.isNotEmpty()) selector.onItemSelectedListener?.onItemSelected(selector,null,0,0)
         text("ALL AIRCRAFT • ${groups.size} unique ICAO24",18f)
         val cards=LinearLayout(ctx).apply{orientation=LinearLayout.VERTICAL};root.addView(cards)
         val ordered=groups.values.sortedByDescending{g->g.maxOf{it.reception.lastSeen}}
