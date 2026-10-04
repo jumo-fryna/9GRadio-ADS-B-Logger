@@ -62,6 +62,8 @@
         <activity android:name=".ui.BookmarkActivity"  android:exported="false" android:label="Bookmarks" />
         <activity android:name=".ui.AdsbActivity"     android:exported="false"
             android:configChanges="orientation|screenSize" android:label="ADS-B Radar" />
+        <activity android:name=".ui.AdsbLogActivity" android:exported="false" android:label="ADS-B LOG / HISTORIA" />
+        <activity android:name=".ui.AdsbDetailActivity" android:exported="false" android:label="Aircraft reception" />
         <activity android:name=".ui.AprsActivity"     android:exported="false" android:label="APRS Monitor" />
         <activity android:name=".ui.AcarsActivity"    android:exported="false" android:label="ACARS Monitor" />
 
@@ -83,3 +85,4 @@
 
     </application>
 </manifest>
+

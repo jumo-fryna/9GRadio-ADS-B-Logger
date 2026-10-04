@@ -119,6 +119,13 @@
 
     </LinearLayout>
 
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginTop="6dp">
+        <Button android:id="@+id/btnAdsbRadar" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1" android:text="ADS-B Radar / Logger" android:textSize="11sp" />
+        <Button android:id="@+id/btnAdsbLog" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1" android:text="ADS-B LOG / HISTORIA" android:textSize="11sp" />
+    </LinearLayout>
     <!-- ── Copyright ─────────────────────────────────────────────── -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -153,3 +160,4 @@
 </LinearLayout>
 
 </ScrollView>
+

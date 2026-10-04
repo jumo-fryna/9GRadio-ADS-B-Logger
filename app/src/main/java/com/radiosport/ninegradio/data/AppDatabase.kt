@@ -2,6 +2,7 @@ package com.radiosport.ninegradio.data
 
 import android.content.Context
 import androidx.room.*
+import com.radiosport.ninegradio.adsblog.*
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.flow.Flow
@@ -274,10 +275,11 @@ interface RecordingMetaDao {
         Bookmark::class,
         ScanEntry::class,
         SignalLog::class,
-        RecordingMeta::class
+        RecordingMeta::class,
+        ReceptionSession::class, AircraftReception::class, TrackPoint::class, AircraftIdentity::class
     ],
-    version = 2,
-    exportSchema = false
+    version = 3,
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun bookmarkListDao(): BookmarkListDao
@@ -286,6 +288,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun scanEntryDao(): ScanEntryDao
     abstract fun signalLogDao(): SignalLogDao
     abstract fun recordingMetaDao(): RecordingMetaDao
+    abstract fun adsbLogDao(): AdsbLogDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null
@@ -369,7 +372,7 @@ abstract class AppDatabase : RoomDatabase() {
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 Room.databaseBuilder(context, AppDatabase::class.java, "ninegradio.db")
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, LogMigration)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {
                             // Pre-populate with a default bookmark list
@@ -464,3 +467,4 @@ object FrequencyDatabase {
         FrequencyEntry("APRS 144.80MHz (EU)",   144_800_000, "APRS", "APRS")
     )
 }
+

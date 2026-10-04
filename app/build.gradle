@@ -7,13 +7,14 @@ plugins {
 android {
     compileSdk 35
     namespace "com.radiosport.ninegradio"
+    ndkVersion "27.0.12077973"
 
     defaultConfig {
         applicationId "com.radiosport.ninegradio"
         minSdk 26
         targetSdk 35
-        versionCode 39
-        versionName "1.39"
+        versionCode 40
+        versionName "1.39-adsb-logger"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
@@ -34,7 +35,7 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             applicationVariants.all { variant ->
                 variant.outputs.all {
-                    outputFileName = "9GRadio_v${variant.versionName}_release.apk"
+                    outputFileName = "9GRadio_v${variant.versionName}_${variant.buildType.name}.apk"
                 }
             }
         }
@@ -67,6 +68,10 @@ android {
     }
 }
 
+kapt {
+    arguments { arg("room.schemaLocation", "$projectDir/schemas") }
+}
+
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     implementation 'androidx.core:core-ktx:1.16.0'
@@ -91,4 +96,6 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    androidTestImplementation 'androidx.room:room-testing:2.7.1'
 }
+

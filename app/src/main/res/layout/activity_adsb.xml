@@ -30,6 +30,18 @@
             android:fontFamily="monospace"/>
     </LinearLayout>
 
+    <TextView android:id="@+id/tvAdsbLogError"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="#FFAA66" android:visibility="gone" />
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <Button android:id="@+id/btnAdsbBack" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="‹" android:minWidth="40dp" />
+        <Button android:id="@+id/btnAdsbHistory" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1" android:text="ADS-B LOG / HISTORIA" />
+        <Button android:id="@+id/btnAdsbReceiver" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:text="Receiver" />
+    </LinearLayout>
     <!-- Radar display - square, takes most of the screen -->
     <com.radiosport.ninegradio.ui.AdsbRadarView
         android:id="@+id/radarView"
@@ -47,3 +59,4 @@
         android:dividerHeight="0.5dp"/>
 
 </LinearLayout>
+

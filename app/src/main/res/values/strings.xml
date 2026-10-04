@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">9GRadio</string>
+    <string name="app_name">9GRadio ADS-B Logger</string>
     <string name="settings">Settings</string>
     <string name="spectrum">Spectrum</string>
     <string name="memory_channels">Memory Channels</string>
@@ -54,3 +54,4 @@
     <string name="usb_source">USB RTL-SDR</string>
     <string name="digital_voice">Digital Voice</string>
 </resources>
+

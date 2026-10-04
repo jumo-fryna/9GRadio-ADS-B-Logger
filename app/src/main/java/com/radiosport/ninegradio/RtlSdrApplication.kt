@@ -19,6 +19,8 @@ class RtlSdrApplication : Application() {
 
     val database: AppDatabase by lazy { AppDatabase.getDatabase(this) }
 
+    val adsbLogger by lazy { com.radiosport.ninegradio.adsblog.AdsbLogger(database) }
+
     override fun onCreate() {
         super.onCreate()
         instance = this
@@ -56,3 +58,4 @@ class RtlSdrApplication : Application() {
         manager.createNotificationChannels(listOf(sdrChannel, recChannel, scanChannel))
     }
 }
+

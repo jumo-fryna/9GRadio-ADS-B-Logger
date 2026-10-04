@@ -106,6 +106,8 @@ class ControlsTabManager(private val adapter: ControlsPagerAdapter) {
     // ── Settings tab ──────────────────────────────────────────────────────────
     val switchReverseTuning: Switch?  get() = adapter.getViewAt(ControlsPagerAdapter.TAB_SETTINGS)?.findViewById(R.id.switchReverseTuning)
     val switchOutOfBound:    Switch?  get() = adapter.getViewAt(ControlsPagerAdapter.TAB_SETTINGS)?.findViewById(R.id.switchOutOfBound)
+    val btnAdsbRadar: android.widget.Button? get() = adapter.getViewAt(ControlsPagerAdapter.TAB_SETTINGS)?.findViewById(R.id.btnAdsbRadar)
+    val btnAdsbLog: android.widget.Button? get() = adapter.getViewAt(ControlsPagerAdapter.TAB_SETTINGS)?.findViewById(R.id.btnAdsbLog)
     val btnOpenSettings:     android.widget.Button? get() = adapter.getViewAt(ControlsPagerAdapter.TAB_SETTINGS)?.findViewById(R.id.btnOpenSettings)
     val btnDeviceInfo:       android.widget.Button? get() = adapter.getViewAt(ControlsPagerAdapter.TAB_SETTINGS)?.findViewById(R.id.btnDeviceInfo)
     val btnScanner:          android.widget.Button? get() = adapter.getViewAt(ControlsPagerAdapter.TAB_SETTINGS)?.findViewById(R.id.btnScanner)
@@ -192,3 +194,4 @@ class ControlsTabManager(private val adapter: ControlsPagerAdapter) {
     val listScanTabHits:       android.widget.ListView? get() = scanView()?.findViewById(R.id.listScanTabHits)
     val listScanTabChannelTable: android.widget.ListView? get() = scanView()?.findViewById(R.id.listScanTabChannelTable)
 }
+

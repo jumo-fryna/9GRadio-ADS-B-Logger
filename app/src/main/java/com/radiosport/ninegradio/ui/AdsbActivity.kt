@@ -17,6 +17,10 @@ import com.radiosport.ninegradio.dsp.DemodMode
 import com.radiosport.ninegradio.usb.RtlSdrService
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.sample
+import com.radiosport.ninegradio.RtlSdrApplication
 
 /**
  * Full-screen ADS-B radar display.
@@ -24,6 +28,7 @@ import kotlinx.coroutines.flow.collectLatest
  * DspEngine's iqMagnitudeFlow — the correct input for the Mode-S preamble
  * detector (2 samples/µs at 2.048 MS/s).
  */
+@OptIn(kotlinx.coroutines.FlowPreview::class)
 class AdsbActivity : AppCompatActivity() {
 
     private val viewModel: MainViewModel by viewModels()
@@ -31,7 +36,12 @@ class AdsbActivity : AppCompatActivity() {
     private lateinit var tvAircraftCount: TextView
     private lateinit var tvStatus: TextView
 
+    private val logger get() = (application as RtlSdrApplication).adsbLogger
+    private val liveTracks = MutableStateFlow<List<AdsbDecoder.AdsbFrame>>(emptyList())
     private val decoder = AdsbDecoder()
+    private var loggerJob: Job? = null
+    private var vmBound = false
+    private lateinit var previousMode: DemodMode
     private val aircraft = HashMap<String, AdsbDecoder.AdsbFrame>()
     private val aircraftList = mutableListOf<String>()
     private lateinit var listAdapter: android.widget.ArrayAdapter<String>
@@ -50,8 +60,8 @@ class AdsbActivity : AppCompatActivity() {
         }
         override fun onServiceDisconnected(name: ComponentName) {
             iqFeedJob?.cancel()
+            logger.stop()
             sdrService = null
-            serviceBound = false
         }
     }
 
@@ -62,19 +72,28 @@ class AdsbActivity : AppCompatActivity() {
         iqFeedJob?.cancel()
         val svc = sdrService ?: return
         iqFeedJob = lifecycleScope.launch {
-            launch {
-                svc.connectionState.collectLatest { state ->
-                    tvStatus.text = when (state) {
-                        is RtlSdrService.ConnectionState.Connected  -> "LIVE — 1090 MHz"
-                        is RtlSdrService.ConnectionState.Connecting -> "Connecting…"
-                        else -> "No Device"
-                    }
+            svc.connectionState.collectLatest { state ->
+                tvStatus.text = when (state) {
+                    is RtlSdrService.ConnectionState.Connected -> "LIVE — 1090 MHz"
+                    is RtlSdrService.ConnectionState.Connecting -> "Connecting…"
+                    else -> "No Device"
                 }
-            }
-            svc.dspEngine?.iqMagnitudeFlow?.collect { mag ->
-                decoder.feed(mag)
+                if (state is RtlSdrService.ConnectionState.Connected) {
+                    val position = receiverPosition()
+                    logger.start(position?.first, position?.second)
+                    withContext(Dispatchers.Default) {
+                        svc.dspEngine?.iqMagnitudeFlow?.collect { decoder.feed(it) }
+                    }
+                } else logger.stop()
             }
         }
+    }
+
+    private fun receiverPosition(): Pair<Double, Double>? {
+        val prefs = getSharedPreferences("adsb_logger", MODE_PRIVATE)
+        val lat = prefs.getString("receiverLat", null)?.toDoubleOrNull()
+        val lon = prefs.getString("receiverLon", null)?.toDoubleOrNull()
+        return if (com.radiosport.ninegradio.adsblog.ReceptionAggregator.validPosition(lat, lon)) Pair(lat!!, lon!!) else null
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,7 +104,6 @@ class AdsbActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         title = "ADS-B Radar (1090 MHz)"
 
-        bindService(Intent(this, RtlSdrService::class.java), serviceConnection, BIND_AUTO_CREATE)
 
         radarView       = findViewById(R.id.radarView)
         tvAircraftCount = findViewById(R.id.tvAircraftCount)
@@ -95,19 +113,20 @@ class AdsbActivity : AppCompatActivity() {
         listAdapter = android.widget.ArrayAdapter(this, android.R.layout.simple_list_item_1, aircraftList)
         listAircraft.adapter = listAdapter
         listAircraft.setOnItemClickListener { _, _, pos, _ ->
-            val entry = aircraftList.getOrNull(pos) ?: return@setOnItemClickListener
-            android.app.AlertDialog.Builder(this)
-                .setTitle("Aircraft Detail")
-                .setMessage(entry.replace(" | ", "\n"))
-                .setPositiveButton("OK", null).show()
+            val frame = liveTracks.value.sortedByDescending { it.altitude ?: -1 }.getOrNull(pos) ?: return@setOnItemClickListener
+            lifecycleScope.launch {
+                logger.flush()
+                startActivity(Intent(this@AdsbActivity, AdsbDetailActivity::class.java).putExtra("icao24", frame.icao24))
+            }
         }
 
         // Auto-tune to 1090 MHz and switch to ADS-B mode.
         // setDemodMode() saves the previous mode's settings and restores any
         // previously saved ADS-B settings.  On first use (no snapshot yet) we
         // apply the protocol-required defaults so they become the ADS-B baseline.
-        viewModel.setFrequency(AdsbDecoder.ADSB_FREQ_HZ)
+        previousMode = savedInstanceState?.getString("previousMode")?.let { DemodMode.valueOf(it) } ?: viewModel.demodMode.value
         viewModel.setDemodMode(DemodMode.ADSB)
+        viewModel.setFrequency(AdsbDecoder.ADSB_FREQ_HZ)
         if (!viewModel.hasModeSnapshot(DemodMode.ADSB)) {
             // First-ever ADS-B launch: seed protocol-required defaults.
             // 1.920 MS/s = 48 000 × 40 — perfect integer decimation to the 48 kHz
@@ -121,44 +140,92 @@ class AdsbActivity : AppCompatActivity() {
                 viewModel.setGain(adsbPrefs.getInt("pref_default_gain", 26))
         }
 
-        // Collect decoded frames
-        lifecycleScope.launch {
-            decoder.frames.collectLatest { frame ->
-                aircraft[frame.icao24] = frame
-                // Remove stale tracks (>2 min old)
+        // Merge partial frames in memory off the UI thread; checkpointing is independent.
+        loggerJob = lifecycleScope.launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+            decoder.frames.collect { frame ->
+                logger.accept(frame)
+                val old = aircraft[frame.icao24]
+                aircraft[frame.icao24] = if (old == null) frame else frame.copy(
+                    callsign = frame.callsign ?: old.callsign, altitude = frame.altitude ?: old.altitude,
+                    latitude = frame.latitude ?: old.latitude, longitude = frame.longitude ?: old.longitude,
+                    velocity = frame.velocity ?: old.velocity, heading = frame.heading ?: old.heading,
+                    verticalRate = frame.verticalRate ?: old.verticalRate)
                 val cutoff = System.currentTimeMillis() - 120_000L
                 aircraft.entries.removeAll { it.value.timestamp < cutoff }
-                radarView.updateAircraft(aircraft.values.toList())
-                tvAircraftCount.text = "Aircraft: ${aircraft.size}"
-
-                // Update text list
+                liveTracks.value = aircraft.values.toList()
+            }
+        }
+        lifecycleScope.launch {
+            liveTracks.sample(500).collect { frames ->
+                radarView.updateAircraft(frames)
+                tvAircraftCount.text = "Aircraft: ${frames.size}"
                 aircraftList.clear()
-                aircraft.values
-                    .sortedByDescending { it.altitude ?: -1 }
-                    .forEach { ac ->
-                        val callsign = ac.callsign?.trim()?.ifBlank { ac.icao24 } ?: ac.icao24
-                        val alt = ac.altitude?.let { "FL${it / 100}" } ?: "??"
-                        val pos = if (ac.latitude != null && ac.longitude != null)
-                            "${"%.2f".format(ac.latitude)},${"%.2f".format(ac.longitude)}"
-                        else "no pos"
-                        val spd = ac.velocity?.let { "${it}kt" } ?: ""
-                        aircraftList.add("$callsign | $alt | $pos $spd")
-                    }
+                frames.sortedByDescending { it.altitude ?: -1 }.forEach { ac ->
+                    val callsign = ac.callsign?.trim()?.ifBlank { ac.icao24 } ?: ac.icao24
+                    val alt = ac.altitude?.let { "${it}ft" } ?: "??"
+                    val pos = if (ac.latitude != null && ac.longitude != null)
+                        "${"%.2f".format(ac.latitude)},${"%.2f".format(ac.longitude)}" else "no pos"
+                    val spd = ac.velocity?.let { "${it}kt" } ?: ""
+                    aircraftList.add("$callsign | $alt | $pos $spd")
+                }
                 listAdapter.notifyDataSetChanged()
             }
         }
+        lifecycleScope.launch { logger.error.collect { error ->
+            findViewById<TextView>(R.id.tvAdsbLogError).apply {
+                text = error.orEmpty(); visibility = if (error == null) View.GONE else View.VISIBLE
+            }
+        } }
+        receiverPosition()?.let { radarView.setOwnPosition(it.first, it.second) }
+        findViewById<View>(R.id.btnAdsbBack).setOnClickListener { finish() }
+        findViewById<View>(R.id.btnAdsbHistory).setOnClickListener {
+            startActivity(Intent(this, AdsbLogActivity::class.java))
+        }
+        findViewById<View>(R.id.btnAdsbReceiver).setOnClickListener { configureReceiver() }
+        // Bind the Activity's ViewModel too so its existing tuning commands reach the service.
+        vmBound = bindService(Intent(this, RtlSdrService::class.java), viewModel.serviceConnection, BIND_AUTO_CREATE)
+        serviceBound = bindService(Intent(this, RtlSdrService::class.java), serviceConnection, BIND_AUTO_CREATE)
 
-        // Status indicator — read connectionState directly from the bound service.
-        // viewModel.connectionState is scoped to this Activity's own ViewModel instance
-        // (separate from MainActivity's), so it always starts Disconnected and shows
-        // "No Device" even when a device is live.  We start the observer in
-        // startIqFeed() once sdrService is available instead.
+        // The bound service owns reception state; the ViewModel supplies saved tuning settings.
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("previousMode", previousMode.name)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onDestroy() {
+        if (isFinishing && ::previousMode.isInitialized) viewModel.setDemodMode(previousMode)
         super.onDestroy()
         iqFeedJob?.cancel()
+        loggerJob?.cancel()
+        if (!isChangingConfigurations) logger.stop()
+        if (vmBound) { unbindService(viewModel.serviceConnection); vmBound = false }
         if (serviceBound) { unbindService(serviceConnection); serviceBound = false }
+    }
+
+    private fun configureReceiver() {
+        val form = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(24, 12, 24, 12) }
+        val position = receiverPosition()
+        val lat = EditText(this).apply { hint = "Receiver latitude (-90 … 90)"; setText(position?.first?.toString().orEmpty()) }
+        val lon = EditText(this).apply { hint = "Receiver longitude (-180 … 180)"; setText(position?.second?.toString().orEmpty()) }
+        form.addView(lat); form.addView(lon)
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this).setTitle("Receiver position")
+            .setMessage("Distance is unknown until a receiver position is set. Updating it starts a new listening session.")
+            .setView(form).setNegativeButton("Cancel", null).setPositiveButton("Save", null).create()
+        dialog.setOnShowListener { dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            val a = lat.text.toString().toDoubleOrNull(); val b = lon.text.toString().toDoubleOrNull()
+            if (!com.radiosport.ninegradio.adsblog.ReceptionAggregator.validPosition(a, b)) {
+                lat.error = "Enter valid latitude and longitude"; return@setOnClickListener
+            }
+            getSharedPreferences("adsb_logger", MODE_PRIVATE).edit()
+                .putString("receiverLat", a.toString()).putString("receiverLon", b.toString()).apply()
+            radarView.setOwnPosition(a!!, b!!)
+            logger.stop()
+            if (sdrService?.connectionState?.value is RtlSdrService.ConnectionState.Connected) logger.start(a, b)
+            dialog.dismiss()
+        } }
+        dialog.show()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -305,3 +372,4 @@ class AdsbRadarView @JvmOverloads constructor(
         sweepAnimator.cancel()
     }
 }
+

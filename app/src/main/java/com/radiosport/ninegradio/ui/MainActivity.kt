@@ -2340,6 +2340,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupSettingsTab() {
+        ctrlViews.btnAdsbRadar?.setOnClickListener {
+            startActivity(Intent(this, AdsbActivity::class.java))
+        }
+        ctrlViews.btnAdsbLog?.setOnClickListener {
+            startActivity(Intent(this, AdsbLogActivity::class.java))
+        }
         // Out-of-bound frequency switch — restore persisted state
         ctrlViews.switchOutOfBound?.isChecked = viewModel.allowOutOfBand.value
         ctrlViews.switchOutOfBound?.setOnCheckedChangeListener { _, isChecked ->
@@ -5054,3 +5060,4 @@ private class ScanChannelTableAdapter(
         return view
     }
 }
+

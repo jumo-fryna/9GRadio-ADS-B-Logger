@@ -1,0 +1,10 @@
+[
+  {
+    "icao24": "ABC123",
+    "registration": "EXAMPLE-REG",
+    "manufacturer": "Example manufacturer",
+    "model": "Example model",
+    "operator": "Example operator — fictional data",
+    "aircraftType": "EXAMPLE"
+  }
+]
