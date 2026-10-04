@@ -78,7 +78,7 @@ class SkyLogActivity : AppCompatActivity() {
             frames.forEach { f ->
                 val id=identities[f.icao24]; val p=service?.position()
                 val distance=if(p!=null&&ReceptionAggregator.validPosition(f.latitude,f.longitude))ReceptionAggregator.distanceNm(p.first,p.second,f.latitude!!,f.longitude!!)else null
-                val card=logText(this,"${f.callsign?:f.icao24}   ${id?.registration?:"—"}\n${f.icao24} • ${id?.aircraftType?:id?.model?:"Unknown type"}\n▰ ${id?.operator?:"Unidentified operator"}\n${f.altitude?:"—"} ft • ${f.velocity?:"—"} kt • ${f.heading?:"—"}°\n${ReportFormat.distance(distance)} • age ${(System.currentTimeMillis()-f.timestamp)/1000}s",15f)
+                val card=logText(this@SkyLogActivity,"${f.callsign?:f.icao24}   ${id?.registration?:"—"}\n${f.icao24} • ${id?.aircraftType?:id?.model?:"Unknown type"}\n▰ ${id?.operator?:"Unidentified operator"}\n${f.altitude?:"—"} ft • ${f.velocity?:"—"} kt • ${f.heading?:"—"}°\n${ReportFormat.distance(distance)} • age ${(System.currentTimeMillis()-f.timestamp)/1000}s",15f)
                 card.setBackgroundColor(Color.rgb(12,36,49));list.addView(card,LinearLayout.LayoutParams(-1,-2).apply{setMargins(12,5,12,5)})
                 card.setOnClickListener { startActivity(Intent(this@SkyLogActivity,AdsbDetailActivity::class.java).putExtra("icao24",f.icao24)) }
             }
