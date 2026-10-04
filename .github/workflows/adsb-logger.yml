@@ -27,6 +27,9 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - name: Reuse debug signing key
         uses: actions/cache@v4
         with:
@@ -55,10 +58,13 @@ jobs:
           mkdir -p artifacts
           cp app/build/outputs/apk/debug/*.apk artifacts/9GRadio-ADS-B-Logger-debug.apk
           cp app/build/outputs/apk/androidTest/debug/*.apk artifacts/9GRadio-ADS-B-Logger-tests.apk
+          sha256sum artifacts/9GRadio-ADS-B-Logger-debug.apk | tee artifacts/9GRadio-ADS-B-Logger-debug.apk.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: 9GRadio-ADS-B-Logger-debug
-          path: artifacts/9GRadio-ADS-B-Logger-debug.apk
+          path: |
+            artifacts/9GRadio-ADS-B-Logger-debug.apk
+            artifacts/9GRadio-ADS-B-Logger-debug.apk.sha256
           if-no-files-found: error
           retention-days: 30
       - uses: actions/upload-artifact@v4
@@ -87,6 +93,9 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - uses: actions/download-artifact@v4
         with:
           name: 9GRadio-ADS-B-Logger-debug
