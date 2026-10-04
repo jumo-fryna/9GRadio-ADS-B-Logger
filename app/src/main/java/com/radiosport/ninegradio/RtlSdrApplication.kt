@@ -17,6 +17,8 @@ class RtlSdrApplication : Application() {
             private set
     }
 
+    val cleanupScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.IO)
+
     val database: AppDatabase by lazy { AppDatabase.getDatabase(this) }
 
     val adsbLogger by lazy { com.radiosport.ninegradio.adsblog.AdsbLogger(database) { getSharedPreferences("adsb_logger", MODE_PRIVATE).getInt("retentionDays",0) } }
@@ -32,30 +34,14 @@ class RtlSdrApplication : Application() {
 
         val sdrChannel = NotificationChannel(
             CHANNEL_SDR_SERVICE,
-            "SDR Service",
+            "SkyLog 1090 reception",
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "9GRadio background processing service"
+            description = "ADS-B 1090 MHz USB reception and durable history"
             setShowBadge(false)
         }
 
-        val recChannel = NotificationChannel(
-            CHANNEL_RECORDING,
-            "IQ Recording",
-            NotificationManager.IMPORTANCE_DEFAULT
-        ).apply {
-            description = "IQ and audio recording notifications"
-        }
-
-        val scanChannel = NotificationChannel(
-            CHANNEL_SCANNER,
-            "Frequency Scanner",
-            NotificationManager.IMPORTANCE_LOW
-        ).apply {
-            description = "Frequency scanner status"
-        }
-
-        manager.createNotificationChannels(listOf(sdrChannel, recChannel, scanChannel))
+        manager.createNotificationChannels(listOf(sdrChannel))
     }
 }
 

@@ -112,10 +112,11 @@ class AdsbLogActivity : AppCompatActivity() {
         }
         root.addView(controls)
         if(mobile) {
+            root.addView(Button(this).apply { text="ODŚWIEŻ RAPORT • NOWY SNAPSHOT";setOnClickListener {refreshDashboard()} })
             root.addView(Button(this).apply { text="UDOSTĘPNIJ • EXCEL";setOnClickListener { shareReport() } })
             root.addView(Button(this).apply { text="WYBIERZ DZIEŃ";setOnClickListener {
                 val now=LocalDate.now(ZoneOffset.UTC)
-                android.app.DatePickerDialog(this@AdsbLogActivity,{_,y,m,d->val day=LocalDate.of(y,m+1,d);filter.value=filter.value.copy(from=day.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli(),until=day.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli(),sessionId="")},now.year,now.monthValue-1,now.dayOfMonth).show()
+                android.app.DatePickerDialog(this@AdsbLogActivity,{_,y,m,d->val day=LocalDate.of(y,m+1,d);sessionPicker.setSelection(0);filter.value=filter.value.copy(from=day.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli(),until=day.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli(),sessionId="")},now.year,now.monthValue-1,now.dayOfMonth).show()
             } })
         }
         caption = logText(this, "All dates • UTC", 12f); root.addView(caption)
@@ -159,15 +160,8 @@ class AdsbLogActivity : AppCompatActivity() {
                 launch { filter.flatMapLatest { dao.filtered(it) }.collect { cards ->
                     rows.clear(); rows.addAll(cards); adapter.notifyDataSetChanged()
                     caption.text = "${cards.size} reception(s) • same selection for screen / exports • UTC"
-                    reportJob?.cancel()
-                    reportJob=launch {
-                        val selection=filter.value
-                        val report=prepareReport(selection)
-                        displayedReport=report;displayedFilter=selection
-                        val s=report.stats
-                        stats.text="${s.aircraft} aircraft • ${s.frames} frames • ${ReportFormat.duration(s.listeningMs)} listening\nFarthest ${ReportFormat.distance(s.farthestNm)} • Highest ${s.highestFeet?:"—"} ft"
-                        mobileBody?.let{body->com.radiosport.ninegradio.skylog.MobileReportUi.render(body,report,getSharedPreferences("adsb_logger",MODE_PRIVATE).getString("reportName","SkyLog 1090").orEmpty()){card->startActivity(Intent(this@AdsbLogActivity,AdsbDetailActivity::class.java).putExtra("icao24",card.reception.icao24).putExtra("receptionId",card.reception.id))}}
-                    }
+                    if(!mobile || displayedReport==null || displayedFilter!=filter.value) refreshDashboard()
+
                 } }
 
             }
@@ -233,6 +227,19 @@ class AdsbLogActivity : AppCompatActivity() {
                 })
             } catch (e: CancellationException) { exportBusy = false; throw e
             } catch (e: Exception) { exportBusy = false; message("Export failed: ${e.message}") }
+        }
+    }
+    private fun refreshDashboard() {
+        reportJob?.cancel()
+        reportJob=lifecycleScope.launch {
+            val selection=filter.value
+            val report=prepareReport(selection)
+            displayedReport=report;displayedFilter=selection
+            val s=report.stats
+            stats.text="${s.aircraft} aircraft • ${s.frames} frames • ${ReportFormat.duration(s.listeningMs)} listening\nFarthest ${ReportFormat.distance(s.farthestNm)} • Highest ${s.highestFeet?:"—"} ft"
+            val name=getSharedPreferences("adsb_logger",MODE_PRIVATE).getString("reportName","SkyLog 1090").orEmpty()
+            val window=if(selection.from>0)ReportFormat.time(selection.from).take(10)else if(report.sessions.size==1)"Session ${ReportFormat.time(report.sessions.first().startedAt)}"else "${report.sessions.size} sessions"
+            mobileBody?.let{body->com.radiosport.ninegradio.skylog.MobileReportUi.render(body,report,"$name • $window"){card->startActivity(Intent(this@AdsbLogActivity,AdsbDetailActivity::class.java).putExtra("icao24",card.reception.icao24).putExtra("receptionId",card.reception.id))}}
         }
     }
     private suspend fun prepareReport(selected: LogFilter): ReceptionReport = withContext(Dispatchers.IO) {

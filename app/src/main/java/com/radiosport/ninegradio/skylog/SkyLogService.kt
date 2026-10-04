@@ -34,6 +34,7 @@ class SkyLogService : Service() {
     val live = MutableStateFlow<List<AdsbDecoder.AdsbFrame>>(emptyList())
     val routes=MutableStateFlow<Map<String,List<TrackPoint>>>(emptyMap())
     private val trails=HashMap<String,MutableList<TrackPoint>>()
+    private var utcDay=java.time.LocalDate.now(java.time.ZoneOffset.UTC)
     private val aircraft = HashMap<String, AdsbDecoder.AdsbFrame>()
     private val prefs get() = getSharedPreferences("adsb_logger", MODE_PRIVATE)
     override fun onBind(intent: Intent): IBinder = LocalBinder()
@@ -64,8 +65,9 @@ class SkyLogService : Service() {
             .setContentIntent(PendingIntent.getActivity(this, 0, Intent(this, SkyLogActivity::class.java), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT))
             .addAction(R.drawable.ic_stop, "Stop", PendingIntent.getService(this, 0, Intent(this, SkyLogService::class.java).setAction(STOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)).build()
         if (Build.VERSION.SDK_INT >= 34) startForeground(1090, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) else startForeground(1090, notification)
-        if (intent?.action == STOP) { scope.launch { mutex.withLock { disconnect(); state.value = "STOPPED" }; stopSelf() } }
-        if (intent?.action == APPLY) scope.launch { mutex.withLock { source?.let { applySettings(it); logger.stop(); position().let { p -> logger.start(p?.first, p?.second) } } } }
+        if (intent?.action == STOP) { scope.launch { mutex.withLock { disconnect(); state.value = "STOPPED" }; stopForeground(STOP_FOREGROUND_REMOVE);stopSelf() } }
+        if (intent?.action == APPLY) scope.launch { mutex.withLock { source?.let { s->try {withContext(Dispatchers.IO){applySettings(s)};logger.stop();position().let { p -> logger.start(p?.first,p?.second) }} catch(e:CancellationException){throw e} catch(e:Exception){state.value="Settings error: ${e.message}"} } } }
+        if(intent?.action!=STOP&&intent?.action!=APPLY&&source==null)scope.launch{usb.autoConnect()}
         return START_NOT_STICKY
     }
     fun position(): Pair<Double, Double>? {
@@ -93,6 +95,8 @@ class SkyLogService : Service() {
             reader = scope.launch {
                 coroutineScope {
                     launch(start = CoroutineStart.UNDISPATCHED) { decoder.frames.collect { f ->
+                        val day=java.time.Instant.ofEpochMilli(f.timestamp).atOffset(java.time.ZoneOffset.UTC).toLocalDate()
+                        if(day!=utcDay){utcDay=day;logger.stop();position().let{p->logger.start(p?.first,p?.second)}}
                         logger.accept(f)
                         synchronized(aircraft) {
                             if(ReceptionAggregator.validPosition(f.latitude,f.longitude)) {
@@ -130,7 +134,7 @@ class SkyLogService : Service() {
         synchronized(aircraft) { aircraft.clear(); trails.clear();routes.value=emptyMap();live.value=emptyList() }
     }
     override fun onDestroy() {
-        usb.stopListening(); reader?.cancel(); health?.cancel(); source?.close(); source=null; logger.stop(); scope.cancel(); super.onDestroy()
+        usb.stopListening(); reader?.cancel();health?.cancel();val closing=source;source=null;logger.stop();scope.cancel();(application as RtlSdrApplication).cleanupScope.launch{closing?.close()};super.onDestroy()
     }
 }
 

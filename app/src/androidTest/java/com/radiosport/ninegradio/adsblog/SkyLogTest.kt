@@ -33,7 +33,19 @@ class SkyLogTest {
             assertTrue(a.javaClass.simpleName=="SkyLogActivity")
         } }
         val c=ApplicationProvider.getApplicationContext<Context>()
-        ActivityScenario.launch<AdsbLogActivity>(Intent(c,AdsbLogActivity::class.java).putExtra("mobileReport",true)).use { scenario->scenario.onActivity{assertNotNull(it.window.decorView)} }
+        ActivityScenario.launch<AdsbLogActivity>(Intent(c,AdsbLogActivity::class.java).putExtra("mobileReport",true)).use { scenario->scenario.onActivity{a->
+            assertNotNull(a.window.decorView)
+            val r=AircraftReception("r","s","ABC123",firstSeen=1000,lastSeen=2000,frameCount=40)
+            val card=ReceptionCard(r,"SP-TEST",null,"Test model","Local operator","A320",null)
+            val report=ReceptionReport(2000,listOf(ReceptionSession("s",1000,2000)),listOf(card),emptyMap())
+            val root=android.widget.LinearLayout(a)
+            MobileReportUi.render(root,report,"Offline test"){}
+            fun texts(v:android.view.View):List<String> = if(v is android.widget.TextView)listOf(v.text.toString()) else if(v is android.view.ViewGroup)(0 until v.childCount).flatMap{texts(v.getChildAt(it))}else emptyList()
+            val labels=texts(root)
+            assertTrue(labels.contains("AIRCRAFT\n${report.stats.aircraft}"))
+            assertTrue(labels.contains("FRAMES\n${report.stats.frames}"))
+            assertTrue(labels.any{it.contains("SP-TEST")})
+        } }
         c.stopService(Intent(c,SkyLogService::class.java))
     }
 }

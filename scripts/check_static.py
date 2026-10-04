@@ -61,9 +61,7 @@ class KotlinLexicalCheck:
             self.i += 1
         if stop: self.error(f'Unclosed delimiter; expected {stop}')
 
-files = sorted((SRC / 'skylog').glob('*.kt')) + sorted((SRC / 'adsblog').glob('*.kt')) + [SRC / 'ui' / name for name in
-    ['AdsbActivity.kt', 'AdsbLogActivity.kt', 'AdsbDetailActivity.kt', 'MainActivity.kt', 'ControlsTabManager.kt']]
-files += [SRC / 'data/AppDatabase.kt', SRC / 'RtlSdrApplication.kt']
+files = list(SRC.rglob('*.kt'))
 files += list((ROOT / 'app/src/test').rglob('*.kt')) + list((ROOT / 'app/src/androidTest').rglob('*.kt'))
 for file in files:
     KotlinLexicalCheck(file).code()
