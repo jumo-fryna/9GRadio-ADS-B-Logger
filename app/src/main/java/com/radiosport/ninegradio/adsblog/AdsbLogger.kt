@@ -11,7 +11,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 /** Application-owned writer survives navigation to history and flushes after the radar closes. */
-class AdsbLogger(private val db: AppDatabase) {
+class AdsbLogger(private val db: AppDatabase, private val retentionDays: () -> Int = { 0 }) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val aggregator = ReceptionAggregator()
     private val writerMutex = Mutex()
@@ -64,6 +64,8 @@ class AdsbLogger(private val db: AppDatabase) {
                     }
                 }
                 aggregator.committed(batch)
+                val days=retentionDays()
+                if(days>0) db.adsbLogDao().pruneCompleted(System.currentTimeMillis()-days.toLong()*86_400_000)
                 _error.value = null
             } catch (e: CancellationException) { throw e
             } catch (e: Exception) {

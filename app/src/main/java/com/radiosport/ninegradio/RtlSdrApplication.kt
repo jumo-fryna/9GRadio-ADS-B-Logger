@@ -19,7 +19,7 @@ class RtlSdrApplication : Application() {
 
     val database: AppDatabase by lazy { AppDatabase.getDatabase(this) }
 
-    val adsbLogger by lazy { com.radiosport.ninegradio.adsblog.AdsbLogger(database) }
+    val adsbLogger by lazy { com.radiosport.ninegradio.adsblog.AdsbLogger(database) { getSharedPreferences("adsb_logger", MODE_PRIVATE).getInt("retentionDays",0) } }
 
     override fun onCreate() {
         super.onCreate()

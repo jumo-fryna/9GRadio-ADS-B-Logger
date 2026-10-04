@@ -371,7 +371,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
-                Room.databaseBuilder(context, AppDatabase::class.java, "ninegradio.db")
+                Room.databaseBuilder(context, AppDatabase::class.java, "skylog1090.db")
                     .addMigrations(MIGRATION_1_2, LogMigration)
                     .addCallback(object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {

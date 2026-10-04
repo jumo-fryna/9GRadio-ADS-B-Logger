@@ -34,6 +34,10 @@ class AdsbLogActivity : AppCompatActivity() {
     private val rows = mutableListOf<ReceptionCard>()
     private var sessions = emptyList<ReceptionSession>()
     private lateinit var adapter: BaseAdapter
+    private var mobileBody: LinearLayout? = null
+    private var reportJob: Job? = null
+    private var displayedReport: ReceptionReport? = null
+    private var displayedFilter: LogFilter? = null
     private val exportState: AdsbExportViewModel by viewModels()
     private var pendingExport: ReceptionReport?
         get() = exportState.report
@@ -79,7 +83,12 @@ class AdsbLogActivity : AppCompatActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val root = logRoot(this, "ADS-B LOG / HISTORIA")
+        val mobile = intent.getBooleanExtra("mobileReport", false)
+        val root = logRoot(this, if(mobile) "RAPORT • SKYLOG 1090" else "HISTORIA • SKYLOG 1090")
+        if(intent.getBooleanExtra("identityOnly",false)) {
+            root.addView(Button(this).apply { text="IMPORT / REFRESH IDENTITIES";setOnClickListener {identityOptions()} })
+            identityOptions(); return
+        }
         if (savedInstanceState != null) {
             filter.value = LogFilter(savedInstanceState.getLong("from", 0), savedInstanceState.getLong("until", Long.MAX_VALUE),
                 savedInstanceState.getString("icao").orEmpty(), savedInstanceState.getString("callsign").orEmpty(),
@@ -96,13 +105,19 @@ class AdsbLogActivity : AppCompatActivity() {
             }
         }
         val controls = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        listOf("Filter" to { showFilters() }, "XLSX" to { export(ExportFormat.XLSX) },
+        listOf("Filtry" to { showFilters() }, "Excel" to { export(ExportFormat.XLSX) },
             "PDF" to { export(ExportFormat.PDF) }, "CSV" to { export(ExportFormat.CSV) }).forEach { (label, action) ->
             controls.addView(Button(this).apply { text = label; textSize = 12f; setOnClickListener { action() } },
                 LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         }
         root.addView(controls)
-        root.addView(Button(this).apply { text = "Local aircraft identity cache"; setOnClickListener { identityOptions() } })
+        if(mobile) {
+            root.addView(Button(this).apply { text="UDOSTĘPNIJ • EXCEL";setOnClickListener { shareReport() } })
+            root.addView(Button(this).apply { text="WYBIERZ DZIEŃ";setOnClickListener {
+                val now=LocalDate.now(ZoneOffset.UTC)
+                android.app.DatePickerDialog(this@AdsbLogActivity,{_,y,m,d->val day=LocalDate.of(y,m+1,d);filter.value=filter.value.copy(from=day.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli(),until=day.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli(),sessionId="")},now.year,now.monthValue-1,now.dayOfMonth).show()
+            } })
+        }
         caption = logText(this, "All dates • UTC", 12f); root.addView(caption)
         val list = ListView(this).apply { dividerHeight = 1 }
         adapter = object : BaseAdapter() {
@@ -121,11 +136,14 @@ class AdsbLogActivity : AppCompatActivity() {
             }
         }
         list.adapter = adapter
-        list.emptyView = logText(this, "No matching aircraft. Open ADS-B Radar to record reception.", 16f).also { root.addView(it) }
+        if(!mobile) list.emptyView = logText(this, "No matching aircraft. LIVE records automatically when a receiver is connected.", 16f).also { root.addView(it) }
         list.setOnItemClickListener { _, _, pos, _ ->
             startActivity(Intent(this, AdsbDetailActivity::class.java).putExtra("icao24", rows[pos].reception.icao24).putExtra("receptionId", rows[pos].reception.id))
         }
-        root.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
+        if(mobile) {
+            val body=LinearLayout(this).apply{orientation=LinearLayout.VERTICAL};mobileBody=body
+            root.addView(ScrollView(this).apply{addView(body)},LinearLayout.LayoutParams(-1,0,1f))
+        } else root.addView(list, LinearLayout.LayoutParams(-1, 0, 1f))
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { dao.sessions().collect { values ->
@@ -140,19 +158,18 @@ class AdsbLogActivity : AppCompatActivity() {
                 } }
                 launch { filter.flatMapLatest { dao.filtered(it) }.collect { cards ->
                     rows.clear(); rows.addAll(cards); adapter.notifyDataSetChanged()
-                    caption.text = "${cards.size} reception(s) • filters apply to displayed list and exports • UTC"
-                } }
-                launch {
-                    combine(filter.map { it.sessionId }.distinctUntilChanged(), dao.sessions()) { id, all ->
-                        if (id.isBlank()) all else all.filter { it.id == id }
-                    }.collectLatest { selected ->
-                        val receptions = withContext(Dispatchers.IO) { selected.flatMap { dao.sessionReceptions(it.id) } }
-                        val s = ReceptionStats.from(receptions, selected)
-                        stats.text = "SESSION STATISTICS\n${s.aircraft} aircraft • ${s.frames} frames • ${ReportFormat.duration(s.listeningMs)} listening\n" +
-                            "Farthest ${ReportFormat.distance(s.farthestNm)} • highest ${s.highestFeet?.let { "$it ft" } ?: "Unknown"}\n" +
-                            "Most received: ${s.mostReceived ?: "—"}"
+                    caption.text = "${cards.size} reception(s) • same selection for screen / exports • UTC"
+                    reportJob?.cancel()
+                    reportJob=launch {
+                        val selection=filter.value
+                        val report=prepareReport(selection)
+                        displayedReport=report;displayedFilter=selection
+                        val s=report.stats
+                        stats.text="${s.aircraft} aircraft • ${s.frames} frames • ${ReportFormat.duration(s.listeningMs)} listening\nFarthest ${ReportFormat.distance(s.farthestNm)} • Highest ${s.highestFeet?:"—"} ft"
+                        mobileBody?.let{body->com.radiosport.ninegradio.skylog.MobileReportUi.render(body,report,getSharedPreferences("adsb_logger",MODE_PRIVATE).getString("reportName","SkyLog 1090").orEmpty()){card->startActivity(Intent(this@AdsbLogActivity,AdsbDetailActivity::class.java).putExtra("icao24",card.reception.icao24).putExtra("receptionId",card.reception.id))}}
                     }
-                }
+                } }
+
             }
         }
     }
@@ -197,19 +214,13 @@ class AdsbLogActivity : AppCompatActivity() {
     private fun export(format: ExportFormat) {
         if (exportBusy) { message("Export already in progress"); return }
         if (rows.isEmpty()) { message("No matching receptions to export"); return }
+        val visible=if(mobileBody!=null&&displayedFilter==filter.value)displayedReport else null
         exportBusy = true
         lifecycleScope.launch {
             try {
                 app.adsbLogger.flush()
                 val selected = filter.value
-                val report = withContext(Dispatchers.IO) {
-                    app.database.withTransaction {
-                        val cards = dao.filteredOnce(selected)
-                        val ids = cards.map { it.reception.sessionId }.toSet()
-                        ReceptionReport(System.currentTimeMillis(), dao.allSessions().filter { it.id in ids }, cards,
-                            cards.associate { it.reception.id to dao.points(it.reception.id) })
-                    }
-                }
+                val report = visible ?: prepareReport(selected)
                 pendingExport = report; pendingFormat = format
                 exportDocument.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
@@ -222,6 +233,33 @@ class AdsbLogActivity : AppCompatActivity() {
                 })
             } catch (e: CancellationException) { exportBusy = false; throw e
             } catch (e: Exception) { exportBusy = false; message("Export failed: ${e.message}") }
+        }
+    }
+    private suspend fun prepareReport(selected: LogFilter): ReceptionReport = withContext(Dispatchers.IO) {
+        app.database.withTransaction {
+            val cards=dao.filteredOnce(selected);val ids=cards.map{it.reception.sessionId}.toSet()
+            ReceptionReport(System.currentTimeMillis(),dao.allSessions().filter{it.id in ids},cards,cards.associate{it.reception.id to dao.points(it.reception.id)})
+        }
+    }
+    private fun shareReport() {
+        if(exportBusy)return
+        val visible=if(displayedFilter==filter.value)displayedReport else null
+        exportBusy=true
+        lifecycleScope.launch {
+            try {
+                app.adsbLogger.flush();val report=visible ?: prepareReport(filter.value)
+                val file=withContext(Dispatchers.IO) {
+                    java.io.File(cacheDir,"SkyLog-1090-report.xlsx").also { f->f.outputStream().use{ReceptionXlsx.write(report,it)} }
+                }
+                val uri=androidx.core.content.FileProvider.getUriForFile(this@AdsbLogActivity,"${packageName}.fileprovider",file)
+                startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
+                    type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    putExtra(Intent.EXTRA_STREAM,uri);addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    clipData=android.content.ClipData.newRawUri("SkyLog report",uri)
+                },"Udostępnij raport"))
+            } catch(e:CancellationException){throw e
+            } catch(e:Exception){message("Share failed: ${e.message}")
+            } finally{exportBusy=false}
         }
     }
     private fun identityOptions() {
@@ -245,6 +283,7 @@ internal fun logText(context: android.content.Context, value: String, size: Floa
     text = value; textSize = size; setTextColor(Color.rgb(200, 226, 235)); setPadding(16, 12, 16, 12)
 }
 internal fun logRoot(activity: AppCompatActivity, title: String): LinearLayout {
+    activity.supportActionBar?.hide()
     val root = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(Color.rgb(5, 18, 28)) }
     activity.setContentView(root)
     ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->

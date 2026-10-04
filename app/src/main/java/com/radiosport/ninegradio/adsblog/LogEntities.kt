@@ -80,6 +80,8 @@ data class LogFilter(
 
 @Dao
 interface AdsbLogDao {
+    @Query("DELETE FROM adsb_sessions WHERE endedAt IS NOT NULL AND endedAt < :cutoff")
+    suspend fun pruneCompleted(cutoff: Long)
     @Upsert suspend fun saveSessions(rows: List<ReceptionSession>)
     @Upsert suspend fun saveReceptions(rows: List<AircraftReception>)
     @Insert suspend fun savePoints(rows: List<TrackPoint>)

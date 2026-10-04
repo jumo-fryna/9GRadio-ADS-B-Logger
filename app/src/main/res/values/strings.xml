@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">9GRadio ADS-B Logger</string>
+    <string name="app_name">SkyLog 1090</string>
     <string name="settings">Settings</string>
     <string name="spectrum">Spectrum</string>
     <string name="memory_channels">Memory Channels</string>
