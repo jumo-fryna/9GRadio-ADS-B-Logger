@@ -1,0 +1,9 @@
+{
+  "description": "Portable protocol fixtures. Same airborne frame as Android SkyLogTest; public ADS-B decoding example pair, UTC times are synthetic.",
+  "frames": [
+    {"hex":"8D4840D6202CC371C32CE0576098", "icao":"4840D6", "callsign":"KLM1023"},
+    {"hex":"8D40621D58C382D690C8AC2863A7", "icao":"40621D", "altitude":38000, "timestamp":1000},
+    {"hex":"8D40621D58C386435CC412692AD6", "icao":"40621D", "altitude":38000, "timestamp":1001, "latitude":52.26578017412606, "longitude":3.938912527901786},
+    {"hex":"8D485020994409940838175B284F", "icao":"485020", "speed":159.20113064925135, "heading":182.8803775528476, "vertical_rate":-832}
+  ]
+}
