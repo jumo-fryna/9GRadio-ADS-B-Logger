@@ -42,3 +42,16 @@ firebase.json
 # Temporary folders
 **/temp/
 **/tmp/
+
+# Windows desktop outputs
+desktop/dist/
+desktop/build/
+desktop/vendor-sources/
+desktop/licenses/
+desktop/*.spec
+desktop/drivers/*.dll
+desktop/assets/world.geojson
+desktop/assets/skylog.ico
+**/__pycache__/
+.pytest_cache/
+*.pyc

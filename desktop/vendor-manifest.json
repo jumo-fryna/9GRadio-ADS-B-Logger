@@ -1,0 +1,14 @@
+[
+  {
+    "url": "https://github.com/rtlsdrblog/rtl-sdr-blog/releases/download/V1.4.0/Release.zip",
+    "sha256": "7ef33f1304647f65e5e0fde43637a73d54f076e91e651a3cecc4f55a17fd9815"
+  },
+  {
+    "url": "https://github.com/rtlsdrblog/rtl-sdr-blog/archive/refs/tags/V1.4.0.zip",
+    "sha256": "efaac50d53ea2f12d9853167ac9470bf4f04de944f17c5d52d2fd73a9ec24c18"
+  },
+  {
+    "url": "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_110m_admin_0_countries.geojson",
+    "sha256": "6866c877d39cba9c357620878839b336d569f8c662d3cfab4cb1dbe2d39c977f"
+  }
+]
