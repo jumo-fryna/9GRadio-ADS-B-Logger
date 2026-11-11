@@ -95,6 +95,19 @@ def test_noise_and_silent_iq_no_false_frames():
     assert d.feed(noise)==[]; assert d.feed(bytes([128])*1000)==[]
 
 
+@pytest.mark.parametrize('phase',[.2,.35,.4,.6,.65,.8])
+@pytest.mark.parametrize('amplitude',[12,80])
+def test_fractional_sample_pulse_energy_is_not_rejected(phase,amplitude):
+    base=np.frombuffer(iq_frame(bytes.fromhex(EVEN),100),dtype=np.uint8).reshape(-1,2)
+    pulse=(base[:,0]>200).astype(float)
+    signal=np.convolve(pulse,[1-phase,phase])[:len(pulse)]
+    iq=np.full(base.shape,128,dtype=np.uint8)
+    iq[:,0]=np.round(128+amplitude*signal).astype(np.uint8)
+    d=IqDecoder();frames=d.feed(iq.tobytes(),1)
+    assert len(frames)==1 and frames[0].raw==EVEN
+    assert d.preambles>=1 and d.signal['power_dbfs'] is not None
+
+
 def test_tracker_partial_merge_stale_and_expiry():
     t=Tracker(); t.accept(Frame('ABC123',100,1,'TEST',10000,0.,0.))
     t.accept(Frame('ABC123',101,19,speed=100)); t.accept(Frame('ABC123',99,1,'OLD',latitude=1,longitude=1))

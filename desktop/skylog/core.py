@@ -138,6 +138,9 @@ class IqDecoder:
         self.tail = np.empty(0, dtype=np.float32)
         self.byte_tail = b''
         self.samples = 0
+        self.preambles = 0
+        self.candidates_adsb = 0
+        self.signal = dict(power_dbfs=None,peak_dbfs=None,clipped_percent=0.0)
 
     def feed(self, data: bytes, timestamp=None):
         data = self.byte_tail + data
@@ -145,19 +148,33 @@ class IqDecoder:
         iq = np.frombuffer(data[:len(data)//2*2], dtype=np.uint8).astype(np.float32)
         self.samples += len(iq)//2
         mag = np.hypot(iq[0::2]-127.5, iq[1::2]-127.5)/128
+        if mag.size:
+            power=float(np.mean(mag*mag,dtype=np.float64))/2
+            peak=float(np.max(mag))**2/2
+            self.signal=dict(power_dbfs=10*math.log10(max(power,1e-12)),
+                peak_dbfs=10*math.log10(max(peak,1e-12)),
+                clipped_percent=float(np.mean((iq<=1)|(iq>=254)))*100)
         mag = np.concatenate((self.tail, mag))
         count = len(mag)-239
         output = []
         if count > 0:
-            pulse = np.minimum.reduce([mag[k:k+count] for k in (0,2,7,9)])
-            quiet = np.maximum.reduce([mag[k:k+count] for k in (1,3,4,5,6,8,10,11,12,13,14,15)])
-            candidates = np.flatnonzero((pulse > quiet*1.7) & (pulse > .025))
+            v=[mag[k:k+count] for k in range(16)]
+            # At 2 MS/s an RF pulse need not line up with a sample: energy spills
+            # into 1/3/6/8/10/15. Compare edges locally and use only the distant
+            # quiet slots for contrast, rather than rejecting all adjacent energy.
+            # CRC remains mandatory; no amplitude floor or bit repair.
+            pulse=(v[0]+v[2]+v[7]+v[9])*.25
+            quiet=np.maximum.reduce([v[k] for k in (4,5,11,12,13,14)])
+            mask=(v[0]>v[1])&(v[2]>v[1])&(v[2]>v[3])&(v[7]>v[8])&(v[9]>v[8])&(pulse>quiet*1.5)
+            candidates = np.flatnonzero(mask)
+            self.preambles += len(candidates)
             skip = -1
             for i in candidates:
                 if i < skip:
                     continue
                 bits = mag[i+16:i+240:2] > mag[i+17:i+240:2]
                 raw = np.packbits(bits).tobytes()
+                if raw[0]>>3 in (17,18): self.candidates_adsb += 1
                 f = self.decoder.decode(raw, timestamp)
                 if f:
                     output.append(f)

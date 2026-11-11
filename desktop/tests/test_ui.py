@@ -42,3 +42,15 @@ def test_manual_location_zero_and_clearing(app,tmp_path):
     assert w.position==(0,0) and w.radar.receiver==(0,0)
     w.position_known.setChecked(False);w.save_position();assert w.position is None
     w.settings.setValue('position',original);w.close()
+
+
+def test_rf_diagnostics_distinguishes_iq_from_confirmed_adsb(app,tmp_path):
+    import threading
+    from types import SimpleNamespace
+    w=Window(tmp_path);w.mode='LIVE';w.worker=SimpleNamespace(stopping=threading.Event())
+    m=dict(samples=2000000,accepted=0,rejected=17,drops=0,queue=0,preambles=100,candidates_adsb=20,power_dbfs=-40.,peak_dbfs=-28.,clipped_percent=0.)
+    w.show_rf_metrics(m)
+    assert 'IQ AKTYWNE' in w.status.text() and 'LIVE ADS-B' not in w.status.text()
+    assert w.rf_cards[0].text()=='2.0 mln' and w.rf_cards[5].text()=='17'
+    m['accepted']=1;w.show_rf_metrics(m);assert 'LIVE ADS-B' in w.status.text()
+    w.worker=None;w.mode='IDLE';w.close()

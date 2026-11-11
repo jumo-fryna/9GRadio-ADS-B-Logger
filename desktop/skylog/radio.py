@@ -122,14 +122,15 @@ class RadioWorker(QThread):
                         decoder=IqDecoder(); raise RuntimeError('Przepełnienie kolejki IQ. Odbiór zatrzymano; zmniejsz obciążenie komputera.')
                     last_iq=time.monotonic()
                     if not started:
-                        started=True; self.status.emit(f'LIVE • {devices[self.index]["product"]} • 1090 MHz • 2 MS/s • {gain/10:.1f} dB')
+                        started=True; self.status.emit(f'IQ AKTYWNE • {devices[self.index]["product"]} • 1090 MHz • oczekiwanie na potwierdzone ADS-B')
                     frames=decoder.feed(data,ts)
                     if frames: self.batch.emit(frames)
                 except queue.Empty:
                     if time.monotonic()-last_iq>5: raise RuntimeError('Brak danych IQ przez 5 sekund. Sprawdź USB i podłącz odbiornik ponownie.')
                 if time.monotonic()-last_metrics>=1:
                     self.metrics.emit(dict(samples=decoder.samples,accepted=decoder.decoder.accepted,
-                        rejected=decoder.decoder.rejected,drops=drops,queue=packets.qsize()))
+                        rejected=decoder.decoder.rejected,drops=drops,queue=packets.qsize(),
+                        preambles=decoder.preambles,candidates_adsb=decoder.candidates_adsb,**decoder.signal))
                     last_metrics=time.monotonic()
         except Exception as e:
             self.status.emit('BŁĄD • '+str(e))

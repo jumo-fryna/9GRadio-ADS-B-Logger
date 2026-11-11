@@ -1,11 +1,19 @@
-# SkyLog 1090 Windows 0.1.0 — instrukcja MVP
+# SkyLog 1090 Windows 0.1.1 — instrukcja MVP
+
+## Zmiany 0.1.1 — odbiór i diagnostyka
+
+Detektor uwzględnia energię impulsu rozłożoną na sąsiednie próbki przy 2 MS/s. Usunięto bezwzględny próg amplitudy oraz porównywanie każdej sąsiedniej próbki ze słabszym z czterech impulsów. Nadal wymagane jest poprawne CRC; nie dodano naprawiania bitów ani sztucznych samolotów. Dodano 12 testów przesunięcia fazowego próbek oraz test rozróżnienia statusu IQ/ADS-B. Łącznie: 49 testów.
+
+Panel Odbiornik pokazuje liczbę próbek, poziom dBFS, przesterowanie, kandydatów preambuły/ADS-B i odrzucone CRC; kandydaci mogą być szumem. Diagnostykę można zapisać lokalnie jako JSON. Status „IQ AKTYWNE” oznacza tylko dopływ próbek; „LIVE ADS-B” wymaga zaakceptowanej ramki. Panel jest przewijany również na niższych ekranach.
+
+Przeprowadzono krótkie próby z podłączonym Blog V4L: odbiór próbek i zmiana gain działają, nie potwierdzono jednak poprawnych ramek ADS-B w tych próbach. Przy 38,6 i 49,6 dB zebrano po 10 s IQ; własny dekoder nie uzyskał poprawnej ramki. Osobna próba programem rtl_adsb producenta trwała 15 s: 18 wynikowych wierszy, zero potwierdzonych ramek ADS-B po sprawdzeniu CRC. Test toru RF w okolicy 100 MHz wykazał większy poziom sygnału niż przy 1090 MHz, ale nie potwierdza czułości anteny na 1090 MHz. Poprawka detektora jest potwierdzona testami syntetycznymi; nie stanowi jeszcze dowodu odbioru samolotów.
 
 Natywna aplikacja Windows 11 x64 dla RTL-SDR Blog V4L. Dashboard, radar geograficzny offline z granicami państw, tabela samolotów, wybór i szczegóły, filtrowanie, historia SQLite, zapisane trasy, statystyki i eksport CSV/XLSX/PDF. Bez konta, serwera i obowiązkowego dostępu do internetu. Tryb DEMO jest symulacją z osobną bazą w pamięci i nie potwierdza odbioru RF.
 
 ## Instalacja
 
-1. Uruchom `SkyLog1090-0.1.0-Setup-x64.exe`. Instalacja dla bieżącego użytkownika, bez administratora. Domyślnie `%LOCALAPPDATA%\Programs\SkyLog1090`. Możesz wybrać skrót na pulpicie. Nie jest wymagany Python ani .NET.
-2. Alternatywnie rozpakuj CAŁY `SkyLog1090-0.1.0-win-x64.zip` do stałego folderu i uruchom `SkyLog1090.exe`. Nie przenoś samego EXE bez katalogu `_internal`.
+1. Uruchom `SkyLog1090-0.1.1-Setup-x64.exe`. Instalacja dla bieżącego użytkownika, bez administratora. Domyślnie `%LOCALAPPDATA%\Programs\SkyLog1090`. Możesz wybrać skrót na pulpicie. Nie jest wymagany Python ani .NET.
+2. Alternatywnie rozpakuj CAŁY `SkyLog1090-0.1.1-win-x64.zip` do stałego folderu i uruchom `SkyLog1090.exe`. Nie przenoś samego EXE bez katalogu `_internal`.
 3. Instalator tej wersji nie jest podpisany certyfikatem wydawcy. Sumy SHA-256 są dołączone do wydania.
 4. Przy pierwszym uruchomieniu możesz wybrać **Podgląd DEMO**. Zielony opis LIVE pojawia się dopiero po otwarciu USB i otrzymaniu danych IQ. Same otwarte USB ani DEMO nie dowodzą odbioru samolotów.
 
@@ -62,7 +70,7 @@ Odinstaluj przez Ustawienia → Aplikacje → SkyLog 1090. Historia i ustawienia
 
 ## Zakres i ograniczenia MVP
 
-Odbiór USB i dekodowanie są zaimplementowane, ale odbiór na fizycznym V4L nie został potwierdzony w tej sesji. Oficjalna DLL ładuje się na Lenovo; podczas sprawdzenia wykryto 0 odbiorników. Testy syntetyczne i znane wektory nie potwierdzają czułości, zasięgu ani odporności na trudne warunki RF. Pozycja z Windows wymaga sprawdzenia na Twojej konfiguracji uprawnień; jej wywołanie jest zaimplementowane, nie potwierdzono uzyskania rzeczywistej pozycji.
+Odbiór USB na fizycznym V4L został potwierdzony w diagnostyce 0.1.1. Odbiór poprawnych ramek ADS-B z anteny nie został potwierdzony; szczegóły krótkich prób znajdują się na początku instrukcji. Testy syntetyczne i znane wektory nie potwierdzają czułości, zasięgu ani odporności na trudne warunki RF. Pozycja z Windows wymaga sprawdzenia na Twojej konfiguracji uprawnień; jej wywołanie jest zaimplementowane, nie potwierdzono uzyskania rzeczywistej pozycji.
 
 Dekoder obsługuje DF17 i ICAO-addressed DF18 CF0, callsign TC1–4, wysokość barometryczną Q=1 i airborne CPR TC9–18, wektor prędkości względem ziemi TC19 subtype1/2 oraz vertical rate. Q=0/Gillham, powierzchniowe CPR, wysokości GNSS TC20–22, MLAT, TIS-B/ADS-R i DF z parzystością adresową nie są dekodowane. Nie naprawia błędów CRC. TC5–8 rozpoznaje tylko stan na ziemi. Algorytm 2 MS/s ma podstawowy detektor preambuły; skuteczność w realnym RF wymaga testu. Po przepełnieniu kolejki lub braku IQ przez 5 s odbiór zatrzymuje się z błędem.
 
@@ -84,4 +92,4 @@ Bez `-Iscc` powstaje paczka portable. Skrypt pobiera przypięte pliki producenta
 
 Repo bazowe: commit `56fb84243338cd13c2faa2f769a02a4631663207`. Przejrzano ProtocolDecoders.kt, SkyLogService/SkyLogIq, kod natywny JNI, agregator, dokumentację, Gradle oraz testy raportów, agregacji i Android IQ. Android jest zależny od UsbManager, Room, Service i JNI Linux/Android; nie można uruchomić tego sterownika USB jako biblioteki Windows.
 
-Wybrano **Python + PySide6/Qt Widgets + NumPy + ctypes/librtlsdr + SQLite + PyInstaller/Inno Setup**: natywny interfejs desktopowy, szybkie wektorowe skanowanie próbek, oficjalne ABI odbiornika, lokalne dane i paczka bez instalacji Pythona u użytkownika. Warstwa core.py jest niezależna od Qt/Windows i nadaje się do dalszego użycia. Zachowano preambułę 0/2/7/9, demodulację PPM i wielomian CRC z Androida; skorygowano usuwanie bitu Q wysokości, znaki składowych prędkości i globalne CPR z limitem wieku 10 s. Wspólne neutralne wektory są w `shared/adsb-vectors`; jeden jest identyczny z Android SkyLogTest. To port i wspólny kontrakt testowy, jeszcze nie jeden silnik wykonywany przez Kotlin i Python. Nie przenoszono wydanego Androida na nowy moduł, aby nie wprowadzać tam regresji. Jego testów JVM/emulatora nie uruchomiono ponownie w tej sesji; historycznych wyników nie przedstawiamy jako nowych.
+Wybrano **Python + PySide6/Qt Widgets + NumPy + ctypes/librtlsdr + SQLite + PyInstaller/Inno Setup**: natywny interfejs desktopowy, szybkie wektorowe skanowanie próbek, oficjalne ABI odbiornika, lokalne dane i paczka bez instalacji Pythona u użytkownika. Warstwa core.py jest niezależna od Qt/Windows i nadaje się do dalszego użycia. Zachowano preambułę 0/2/7/9, demodulację PPM i wielomian CRC z Androida; skorygowano usuwanie bitu Q wysokości, znaki składowych prędkości i globalne CPR z limitem wieku 10 s. Wspólne neutralne wektory są w `shared/adsb-vectors`; jeden jest identyczny z Android SkyLogTest. To port i wspólny kontrakt testowy, jeszcze nie jeden silnik wykonywany przez Kotlin i Python. Nie przenoszono wydanego Androida na nowy moduł, aby nie wprowadzać tam regresji. Jego testów JVM/emulatora nie uruchamiano lokalnie; automatyczny workflow Android jest oceniany osobno.

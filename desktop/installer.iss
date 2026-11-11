@@ -1,7 +1,7 @@
 [Setup]
 AppId={{9AC0F6A7-F9D5-4188-AFB0-109010901090}
 AppName=SkyLog 1090
-AppVersion=0.1.0
+AppVersion=0.1.1
 AppPublisher=SkyLog 1090 contributors
 AppPublisherURL=https://github.com/jumo-fryna/9GRadio-ADS-B-Logger
 DefaultDirName={localappdata}\Programs\SkyLog1090
@@ -11,7 +11,7 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.22000
 OutputDir=dist
-OutputBaseFilename=SkyLog1090-0.1.0-Setup-x64
+OutputBaseFilename=SkyLog1090-0.1.1-Setup-x64
 SetupIconFile=assets\skylog.ico
 UninstallDisplayIcon={app}\SkyLog1090.exe
 Compression=lzma2

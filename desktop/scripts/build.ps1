@@ -18,7 +18,7 @@ try {
     Copy-Item README-WINDOWS.md dist/SkyLog1090/README-WINDOWS.md
     Copy-Item THIRD-PARTY.md dist/SkyLog1090/THIRD-PARTY.md
     Copy-Item vendor-manifest.json dist/SkyLog1090/vendor-manifest.json
-    Compress-Archive -Path dist/SkyLog1090 -DestinationPath dist/SkyLog1090-0.1.0-win-x64.zip -Force
+    Compress-Archive -Path dist/SkyLog1090 -DestinationPath dist/SkyLog1090-0.1.1-win-x64.zip -Force
     if ($Iscc) {
         & $Iscc installer.iss
         if ($LASTEXITCODE) { throw 'Installer compilation failed' }

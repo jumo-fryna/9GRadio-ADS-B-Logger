@@ -11,7 +11,8 @@ from PySide6.QtGui import QColor, QPainter, QPen, QFont, QDesktopServices, QIcon
 from PySide6.QtWidgets import (QApplication,QMainWindow,QWidget,QFrame,QVBoxLayout,QHBoxLayout,
     QLabel,QPushButton,QLineEdit,QComboBox,QTableWidget,QTableWidgetItem,QHeaderView,
     QSplitter,QStackedWidget,QFormLayout,QDoubleSpinBox,QSpinBox,QCheckBox,QMessageBox,
-    QFileDialog,QDateEdit,QAbstractItemView,QScrollArea)
+    QFileDialog,QDateEdit,QAbstractItemView,QScrollArea,QGridLayout)
+from . import __version__
 from .core import Frame, Tracker, Decoder, valid_position, distance_nm
 from .storage import Store, export_report, utc
 from .radio import RadioWorker, LocationWorker, RtlLibrary
@@ -127,7 +128,7 @@ class Window(QMainWindow):
         for i,text in enumerate(['◉   Radar LIVE','▤   Historia','▥   Raport','⚙   Odbiornik','⌁   Antena i pozycja']):
             b=button(text,lambda checked=False,index=i:self.navigate(index)); b.setCheckable(True); self.nav.append(b); sl.addWidget(b)
         sl.addStretch(); sl.addWidget(label('LOKALNY ODBIÓR\nBez konta i map online','muted'))
-        sl.addSpacing(20); sl.addWidget(label('MVP 0.1.0  •  x64','muted')); outer.addWidget(side)
+        sl.addSpacing(20); sl.addWidget(label(f'MVP {__version__}  •  x64','muted')); outer.addWidget(side)
         main=QWidget(); ml=QVBoxLayout(main); ml.setContentsMargins(26,22,26,18); ml.setSpacing(16)
         header=QHBoxLayout(); hl=QVBoxLayout(); hl.addWidget(label('Twój obraz nieba.','title'))
         hl.addWidget(label('ADS-B 1090 MHz   /   lokalny odbiór i historia   /   wysokość ft · prędkość kt · dystans NM','muted')); header.addLayout(hl); header.addStretch()
@@ -210,12 +211,20 @@ class Window(QMainWindow):
         self.ppm=QSpinBox(); self.ppm.setRange(-200,200); self.ppm.setValue(int(self.settings.value('ppm',0))); form.addRow('Korekcja PPM',self.ppm)
         l.addLayout(form); row=QHBoxLayout(); self.scan_button=button('Szukaj odbiorników',self.scan_devices); row.addWidget(self.scan_button)
         row.addWidget(button('Instrukcja WinUSB / V4L',self.driver_help)); row.addStretch(); l.addLayout(row)
+        self.rf_metrics={}; self.rf_cards=[]
+        grid=QGridLayout()
+        for i,(title,sub) in enumerate([('PRÓBKI IQ','od początku odbioru'),('MOC ŚREDNIA','dBFS • ostatni blok ADC'),('PRZESTEROWANIE','% próbek blisko skraju ADC'),('KANDYDACI PREAMBUŁY','obejmują również szum'),('KANDYDACI ADS-B','rozpoznany format DF17/18'),('ODRZUCONE CRC','nie trafiają do historii')]):
+            w,m=card(title,'—',sub);self.rf_cards.append(m);grid.addWidget(w,i//3,i%3)
+        l.addLayout(grid)
         self.diagnostics=label('Nie sprawdzono jeszcze urządzeń.'); self.diagnostics.setWordWrap(True); l.addWidget(self.diagnostics)
+        l.addWidget(label('dBFS opisuje poziom cyfrowych próbek, a nie skalibrowaną moc na wejściu anteny. Otwarty USB i kandydaci preambuły nie potwierdzają odbioru ADS-B.','muted'))
+        l.addWidget(button('Zapisz diagnostykę odbioru…',self.export_diagnostics))
         l.addWidget(label('Parametry stosowane przy następnym uruchomieniu. Program nie zmienia EEPROM odbiornika.','muted'))
         l.addSpacing(20); l.addWidget(label('Odtwarzanie danych','title'))
         l.addWidget(label('Plik AVR: jedna ramka *HEX; lub HEX w wierszu. CRC sprawdzane tym samym dekoderem.\nOdtwarzanie 50 ramek/s; czas odtworzenia stanowi czas odbioru. Dane oznaczone REPLAY.','muted'))
         self.replay_button=button('Otwórz plik AVR…',self.open_replay); l.addWidget(self.replay_button)
-        l.addStretch(); l.addWidget(button('Otwórz folder danych',lambda:QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.data_dir))))); self.pages.addWidget(page)
+        l.addStretch(); l.addWidget(button('Otwórz folder danych',lambda:QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.data_dir)))))
+        scroll=QScrollArea();scroll.setWidgetResizable(True);scroll.setWidget(page);self.pages.addWidget(scroll)
 
     def build_antenna(self):
         page=QWidget(); l=QVBoxLayout(page); l.setContentsMargins(0,0,0,0)
@@ -283,6 +292,28 @@ class Window(QMainWindow):
     def driver_help(self):
         QMessageBox.information(self,'RTL-SDR Blog V4L • sterowniki','Biblioteka rtlsdr.dll V1.4.0 x64 i zależności są w paczce.\n\n1. Podłącz odbiornik i zamknij inne programy SDR.\n2. Pobierz Zadig z https://zadig.akeo.ie/.\n3. Options → List All Devices. Wybierz RTL-SDR Blog V4L / Bulk-In Interface 0. Sprawdź tożsamość odbiornika.\n4. Przypisz WinUSB tylko temu interfejsowi. Nie zmieniaj sterownika Wi-Fi, klawiatury ani innego urządzenia.\n5. Wróć i kliknij Szukaj odbiorników.\n\nPrzypisanie WinUSB może wymagać uprawnień administratora. Aplikacja działa jako zwykły użytkownik.\nInstrukcja producenta: https://www.rtl-sdr.com/v4l/')
 
+    def show_rf_metrics(self,m):
+        self.rf_metrics=dict(m)
+        power=m.get('power_dbfs');clipped=m.get('clipped_percent',0)
+        values=[f"{m['samples']/1e6:.1f} mln",f'{power:.1f}' if power is not None else '—',f'{clipped:.3f}%',str(m.get('preambles',0)),str(m.get('candidates_adsb',0)),str(m['rejected'])]
+        for card_label,value in zip(self.rf_cards,values):card_label.setText(value)
+        if m['accepted']:
+            text=f"Potwierdzone ADS-B: {m['accepted']} ramek z poprawnym CRC. USB działa; straty bloków: {m['drops']}."
+        elif clipped>1:
+            text='Dane IQ docierają, ale wiele próbek osiąga skraj zakresu ADC. Zatrzymaj odbiór, zmniejsz gain i porównaj wynik.'
+        else:
+            text='Dane IQ docierają, ale brak ramek ADS-B z poprawnym CRC. To nie jest problem filtra mapy ani ustawienia lokalizacji. Porównaj gain 38,6 i 49,6 dB oraz otoczenie anteny; same kandydatury mogą pochodzić z szumu.'
+        self.diagnostics.setText(text)
+        if self.mode=='LIVE' and self.worker and not self.worker.stopping.is_set() and not self.status.text().startswith('BŁĄD'):
+            self.status.setText(f"{'LIVE ADS-B • CRC OK' if m['accepted'] else 'IQ AKTYWNE • brak potwierdzonych ramek ADS-B'} • 1090 MHz • 2 MS/s")
+
+    def export_diagnostics(self):
+        path,_=QFileDialog.getSaveFileName(self,'Zapisz diagnostykę',str(self.data_dir/'SkyLog-diagnostyka.json'),'JSON (*.json)')
+        if not path:return
+        try:
+            Path(path).write_text(json.dumps(dict(version=__version__,utc=utc(time.time()),metrics=self.rf_metrics,status=self.status.text(),gain_requested_db=self.gain.value(),ppm=self.ppm.value()),indent=2,ensure_ascii=False),encoding='utf8')
+        except Exception as exc:QMessageBox.warning(self,'Zapis diagnostyki',str(exc))
+
     def set_running(self,running):
         for b in (self.start_button,self.demo_button,self.replay_button,self.scan_button): b.setEnabled(not running)
         for w in (self.gain,self.ppm,self.devices,self.save_position_button,self.locate_button): w.setEnabled(not running)
@@ -293,6 +324,8 @@ class Window(QMainWindow):
         self.store=self.demo_store if mode=='DEMO' else self.real_store
         self.store.start(mode,self.position); self.last_total=0; self.last_rate=time.monotonic()
         self.last_day=datetime.now(timezone.utc).date(); self.set_running(True)
+        self.rf_metrics={}
+        for m in self.rf_cards:m.setText('—')
         self.metric_subs[1].setText('DEMO • aktualizacje syntetyczne' if mode=='DEMO' else 'CRC OK • bieżący odbiór')
         self.report_rows=[]; self.report_at=None
         self.report_caption.setText('Nowe źródło danych. Utwórz raport z filtrów historii.')
@@ -305,12 +338,12 @@ class Window(QMainWindow):
         self.begin('LIVE'); self.status.setText('Łączenie z RTL-SDR…')
         self.worker=RadioWorker(self.devices.currentData() or 0,self.gain.value(),self.ppm.value())
         self.worker.batch.connect(self.accept); self.worker.status.connect(self.status.setText)
-        self.worker.metrics.connect(lambda m:self.diagnostics.setText('Diagnostyka strumienia IQ\n'+json.dumps(m,indent=2)))
+        self.worker.metrics.connect(self.show_rf_metrics)
         self.worker.finished.connect(self.radio_finished); self.worker.start()
 
     def radio_finished(self):
         self.store.stop(); self.worker.deleteLater(); self.worker=None; self.mode='IDLE'; self.set_running(False)
-        self.status.setText(self.status.text()+' • odbiór zakończony'); self.refresh_live()
+        self.status.setText(self.status.text()+' • odbiór zakończony' if self.status.text().startswith('BŁĄD') else '● ZATRZYMANO • historia zapisana lokalnie'); self.refresh_live()
 
     def stop(self):
         self.demo_timer.stop(); self.replay_timer.stop()
